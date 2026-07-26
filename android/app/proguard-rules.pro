@@ -5,3 +5,6 @@
 -dontwarn edu.umd.cs.findbugs.annotations.NonNull
 -dontwarn edu.umd.cs.findbugs.annotations.Nullable
 -dontwarn edu.umd.cs.findbugs.annotations.SuppressFBWarnings
+
+-keep class kotlin.Metadata { *; }
+-keepattributes Signature,InnerClasses,EnclosingMethod,*Annotation*
