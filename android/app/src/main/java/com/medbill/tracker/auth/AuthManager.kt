@@ -18,6 +18,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 
 class AuthManager(context: Context) {
     private val appContext = context.applicationContext
+    private val tenantAuthority = "https://login.microsoftonline.com/${BuildConfig.ENTRA_TENANT}"
 
     private suspend fun getClient(): ISingleAccountPublicClientApplication {
         return suspendCancellableCoroutine { continuation ->
@@ -93,7 +94,7 @@ class AuthManager(context: Context) {
             val params = AcquireTokenSilentParameters.Builder()
                 .forAccount(account)
                 .withScopes(listOf(BuildConfig.ENTRA_API_SCOPE))
-                .fromAuthority(account.authority)
+                .fromAuthority(tenantAuthority)
                 .withCallback(object : SilentAuthenticationCallback {
                     override fun onSuccess(authenticationResult: IAuthenticationResult) {
                         continuation.resume(authenticationResult)

@@ -28,7 +28,7 @@ class AuthViewModel(private val authManager: AuthManager) : ViewModel() {
         viewModelScope.launch {
             runCatching {
                 val result = authManager.restoreExistingSession()
-                if (result != null) {
+                if (result != null && !result.accessToken.isNullOrBlank()) {
                     SessionStore.setToken(result.accessToken)
                     _state.value = AuthState(isAuthenticated = true, loading = false)
                 }
@@ -41,7 +41,13 @@ class AuthViewModel(private val authManager: AuthManager) : ViewModel() {
             _state.value = _state.value.copy(loading = true, error = null)
             runCatching {
                 val result = authManager.signIn(activity)
-                SessionStore.setToken(result.accessToken)
+                val refreshed = authManager.restoreExistingSession()
+                val token = refreshed?.accessToken ?: result.accessToken
+                if (token.isNullOrBlank()) {
+                    throw IllegalStateException("Authentication succeeded but API access token was not issued for scope ${com.medbill.tracker.BuildConfig.ENTRA_API_SCOPE}.")
+                }
+
+                SessionStore.setToken(token)
                 _state.value = AuthState(isAuthenticated = true, loading = false)
             }.onFailure { throwable ->
                 val message = throwable.message ?: "Authentication failed"
@@ -49,7 +55,7 @@ class AuthViewModel(private val authManager: AuthManager) : ViewModel() {
                 if (alreadySignedIn) {
                     runCatching {
                         val restored = authManager.restoreExistingSession()
-                        if (restored != null) {
+                        if (restored != null && !restored.accessToken.isNullOrBlank()) {
                             SessionStore.setToken(restored.accessToken)
                             _state.value = AuthState(isAuthenticated = true, loading = false)
                             return@onFailure
@@ -72,7 +78,13 @@ class AuthViewModel(private val authManager: AuthManager) : ViewModel() {
                 authManager.signOut()
                 SessionStore.clear()
                 val result = authManager.signIn(activity)
-                SessionStore.setToken(result.accessToken)
+                val refreshed = authManager.restoreExistingSession()
+                val token = refreshed?.accessToken ?: result.accessToken
+                if (token.isNullOrBlank()) {
+                    throw IllegalStateException("Authentication succeeded but API access token was not issued for scope ${com.medbill.tracker.BuildConfig.ENTRA_API_SCOPE}.")
+                }
+
+                SessionStore.setToken(token)
                 _state.value = AuthState(isAuthenticated = true, loading = false)
             }.onFailure {
                 _state.value = AuthState(isAuthenticated = false, loading = false, error = mapAuthError(it.message ?: "Authentication failed"))
