@@ -80,7 +80,8 @@ fun AppRoot(billsViewModel: BillsViewModel) {
                 SignInScreen(
                     loading = authState.loading,
                     error = authState.error,
-                    onSignIn = { authViewModel.signIn(context as Activity) }
+                    onSignIn = { authViewModel.signIn(context as Activity) },
+                    onUseDifferentAccount = { authViewModel.signInWithDifferentAccount(context as Activity) }
                 )
             }
 
@@ -151,7 +152,14 @@ fun AppRoot(billsViewModel: BillsViewModel) {
 }
 
 @Composable
-private fun SignInScreen(loading: Boolean, error: String?, onSignIn: () -> Unit) {
+private fun SignInScreen(
+    loading: Boolean,
+    error: String?,
+    onSignIn: () -> Unit,
+    onUseDifferentAccount: () -> Unit
+) {
+    val canUseDifferentAccount = error?.contains("already signed in", ignoreCase = true) == true
+
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center,
@@ -161,6 +169,15 @@ private fun SignInScreen(loading: Boolean, error: String?, onSignIn: () -> Unit)
         Text("Sign in with Microsoft Entra ID to continue", modifier = Modifier.padding(top = 8.dp, bottom = 16.dp))
         Button(onClick = onSignIn, enabled = !loading) {
             Text(if (loading) "Signing in..." else "Sign in")
+        }
+        if (canUseDifferentAccount) {
+            Button(
+                onClick = onUseDifferentAccount,
+                enabled = !loading,
+                modifier = Modifier.padding(top = 12.dp)
+            ) {
+                Text("Use different account")
+            }
         }
         if (error != null) {
             Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))

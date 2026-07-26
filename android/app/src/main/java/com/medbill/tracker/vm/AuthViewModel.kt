@@ -20,10 +20,53 @@ class AuthViewModel(private val authManager: AuthManager) : ViewModel() {
     private val _state = MutableStateFlow(AuthState())
     val state: StateFlow<AuthState> = _state.asStateFlow()
 
+    init {
+        restoreSession()
+    }
+
+    private fun restoreSession() {
+        viewModelScope.launch {
+            runCatching {
+                val result = authManager.restoreExistingSession()
+                if (result != null) {
+                    SessionStore.setToken(result.accessToken)
+                    _state.value = AuthState(isAuthenticated = true, loading = false)
+                }
+            }
+        }
+    }
+
     fun signIn(activity: Activity) {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true, error = null)
             runCatching {
+                val result = authManager.signIn(activity)
+                SessionStore.setToken(result.accessToken)
+                _state.value = AuthState(isAuthenticated = true, loading = false)
+            }.onFailure { throwable ->
+                val message = throwable.message ?: "Authentication failed"
+                val alreadySignedIn = message.contains("already signed in", ignoreCase = true)
+                if (alreadySignedIn) {
+                    runCatching {
+                        val restored = authManager.restoreExistingSession()
+                        if (restored != null) {
+                            SessionStore.setToken(restored.accessToken)
+                            _state.value = AuthState(isAuthenticated = true, loading = false)
+                            return@onFailure
+                        }
+                    }
+                }
+                _state.value = AuthState(isAuthenticated = false, loading = false, error = message)
+            }
+        }
+    }
+
+    fun signInWithDifferentAccount(activity: Activity) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(loading = true, error = null)
+            runCatching {
+                authManager.signOut()
+                SessionStore.clear()
                 val result = authManager.signIn(activity)
                 SessionStore.setToken(result.accessToken)
                 _state.value = AuthState(isAuthenticated = true, loading = false)
