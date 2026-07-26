@@ -1,5 +1,6 @@
 package com.medbill.tracker.data.api
 
+import android.os.Build
 import com.medbill.tracker.BuildConfig
 import com.medbill.tracker.auth.SessionStore
 import okhttp3.OkHttpClient
@@ -8,6 +9,22 @@ import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 
 object ApiModule {
+    private fun isEmulator(): Boolean {
+        val fingerprint = Build.FINGERPRINT.lowercase()
+        val model = Build.MODEL.lowercase()
+        return fingerprint.contains("generic") || model.contains("emulator") || model.contains("sdk")
+    }
+
+    private fun resolvedBaseUrl(): String {
+        val base = BuildConfig.BASE_URL
+        return if (!isEmulator() && base.startsWith("http://10.0.2.2:")) {
+            // Physical devices cannot reach emulator loopback. Use adb reverse target instead.
+            base.replace("http://10.0.2.2:", "http://127.0.0.1:")
+        } else {
+            base
+        }
+    }
+
     fun createApi(): ApiService {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
@@ -30,7 +47,7 @@ object ApiModule {
             .build()
 
         return Retrofit.Builder()
-            .baseUrl(BuildConfig.BASE_URL)
+            .baseUrl(resolvedBaseUrl())
             .addConverterFactory(MoshiConverterFactory.create())
             .client(client)
             .build()

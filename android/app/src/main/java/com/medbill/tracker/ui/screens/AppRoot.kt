@@ -48,6 +48,66 @@ import com.medbill.tracker.vm.BillsViewModel
 import java.math.BigDecimal
 import java.util.UUID
 
+private data class BillSample(
+    val providerName: String,
+    val providerId: String,
+    val invoiceNumber: String,
+    val accountNumber: String,
+    val serviceDate: String,
+    val billDate: String,
+    val dueDate: String,
+    val totalBilledAmount: String,
+    val insurancePaidAmount: String,
+    val discountAdjustmentAmount: String,
+    val patientResponsibilityAmount: String,
+    val notes: String
+)
+
+private val norcoSample = BillSample(
+    providerName = "Norco",
+    providerId = "7f3d6c25-0a8f-4cf8-b0dc-9348786a4a2c",
+    invoiceNumber = "46482433",
+    accountNumber = "CWI606",
+    serviceDate = "2026-05-15",
+    billDate = "2026-06-29",
+    dueDate = "2026-08-01",
+    totalBilledAmount = "128.92",
+    insurancePaidAmount = "0.00",
+    discountAdjustmentAmount = "0.00",
+    patientResponsibilityAmount = "128.92",
+    notes = "Norco statement sample from image"
+)
+
+private val contosoSample = BillSample(
+    providerName = "Contoso Medical Group",
+    providerId = "2b6c02c4-ec61-46e4-9e90-2ef376f6017f",
+    invoiceNumber = "INV-1001",
+    accountNumber = "ACCT-5001",
+    serviceDate = "2026-01-01",
+    billDate = "2026-01-15",
+    dueDate = "2026-02-01",
+    totalBilledAmount = "350.00",
+    insurancePaidAmount = "225.00",
+    discountAdjustmentAmount = "0.00",
+    patientResponsibilityAmount = "125.00",
+    notes = "Contoso sample"
+)
+
+private val footAndAnkleSample = BillSample(
+    providerName = "Foot & Ankle Centers of Washington",
+    providerId = "8cd0fd53-08b8-4d62-aad6-4d0742a6b670",
+    invoiceNumber = "881483",
+    accountNumber = "20258080",
+    serviceDate = "2026-05-04",
+    billDate = "2026-06-13",
+    dueDate = "2026-07-13",
+    totalBilledAmount = "244.05",
+    insurancePaidAmount = "0.00",
+    discountAdjustmentAmount = "125.70",
+    patientResponsibilityAmount = "118.35",
+    notes = "Foot & Ankle statement sample from image"
+)
+
 @Composable
 fun AppRoot(billsViewModel: BillsViewModel) {
     val context = LocalContext.current
@@ -113,6 +173,7 @@ fun AppRoot(billsViewModel: BillsViewModel) {
                     loading = billsState.loading,
                     providerLookupLoading = billsState.providerLookupLoading,
                     providerMatches = billsState.providerMatches,
+                    providerLookupError = billsState.providerLookupError,
                     error = billsState.error,
                     onProviderQuery = { query -> billsViewModel.lookupProvidersByName(query) },
                     onProviderSelected = { _ -> billsViewModel.clearProviderLookup() }
@@ -250,6 +311,7 @@ private fun AddBillScreen(
     loading: Boolean,
     providerLookupLoading: Boolean,
     providerMatches: List<Provider>,
+    providerLookupError: String?,
     error: String?,
     onProviderQuery: (String) -> Unit,
     onProviderSelected: (Provider) -> Unit,
@@ -269,8 +331,37 @@ private fun AddBillScreen(
     var notes by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
 
+    fun applySample(sample: BillSample) {
+        providerSearch = sample.providerName
+        providerId = sample.providerId
+        invoiceNumber = sample.invoiceNumber
+        accountNumber = sample.accountNumber
+        serviceDate = sample.serviceDate
+        billDate = sample.billDate
+        dueDate = sample.dueDate
+        totalBilledAmount = sample.totalBilledAmount
+        insurancePaidAmount = sample.insurancePaidAmount
+        discountAdjustmentAmount = sample.discountAdjustmentAmount
+        patientResponsibilityAmount = sample.patientResponsibilityAmount
+        notes = sample.notes
+        localError = null
+    }
+
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Text("Add Bill", style = MaterialTheme.typography.headlineMedium) }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(enabled = !loading, onClick = { applySample(norcoSample) }) {
+                    Text("Use Norco Sample")
+                }
+                Button(enabled = !loading, onClick = { applySample(footAndAnkleSample) }) {
+                    Text("Use Foot & Ankle")
+                }
+                Button(enabled = !loading, onClick = { applySample(contosoSample) }) {
+                    Text("Use Contoso Sample")
+                }
+            }
+        }
         item {
             OutlinedTextField(
                 value = providerSearch,
@@ -288,6 +379,9 @@ private fun AddBillScreen(
         }
         if (providerLookupLoading) {
             item { Text("Searching providers...") }
+        }
+        if (!providerLookupError.isNullOrBlank()) {
+            item { Text(providerLookupError, color = MaterialTheme.colorScheme.error) }
         }
         if (providerMatches.isNotEmpty()) {
             items(providerMatches) { provider ->

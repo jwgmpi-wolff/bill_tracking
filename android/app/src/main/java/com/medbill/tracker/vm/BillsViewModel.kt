@@ -22,6 +22,7 @@ data class BillsState(
     val selectedBill: Bill? = null,
     val providerLookupLoading: Boolean = false,
     val providerMatches: List<Provider> = emptyList(),
+    val providerLookupError: String? = null,
     val documents: List<DocumentRecord> = emptyList(),
     val paymentRedirectUrl: String? = null,
     val error: String? = null
@@ -116,23 +117,39 @@ class BillsViewModel : ViewModel() {
     fun lookupProvidersByName(query: String) {
         val trimmed = query.trim()
         if (trimmed.isBlank()) {
-            _state.value = _state.value.copy(providerMatches = emptyList(), providerLookupLoading = false)
+            _state.value = _state.value.copy(providerMatches = emptyList(), providerLookupLoading = false, providerLookupError = null)
             return
         }
 
         viewModelScope.launch {
-            _state.value = _state.value.copy(providerLookupLoading = true, error = null)
+            _state.value = _state.value.copy(providerLookupLoading = true, providerLookupError = null)
             runCatching {
                 val providers = repository.lookupProvidersByName(trimmed)
-                _state.value = _state.value.copy(providerMatches = providers, providerLookupLoading = false)
-            }.onFailure {
-                _state.value = _state.value.copy(providerMatches = emptyList(), providerLookupLoading = false, error = "Unable to search providers")
+                _state.value = _state.value.copy(providerMatches = providers, providerLookupLoading = false, providerLookupError = null)
+            }.onFailure { throwable ->
+                _state.value = _state.value.copy(
+                    providerMatches = emptyList(),
+                    providerLookupLoading = false,
+                    providerLookupError = mapProviderLookupError(throwable)
+                )
             }
         }
     }
 
     fun clearProviderLookup() {
-        _state.value = _state.value.copy(providerMatches = emptyList(), providerLookupLoading = false)
+        _state.value = _state.value.copy(providerMatches = emptyList(), providerLookupLoading = false, providerLookupError = null)
+    }
+
+    private fun mapProviderLookupError(throwable: Throwable): String {
+        if (throwable is HttpException) {
+            return when (throwable.code()) {
+                401, 403 -> "Provider search unauthorized. Sign out and sign in again."
+                404 -> "Provider lookup endpoint is unavailable on current API. Update backend deployment or enter Provider ID manually."
+                else -> "Provider lookup failed (HTTP ${throwable.code()})."
+            }
+        }
+
+        return "Unable to search providers"
     }
 
     fun clearPaymentRedirect() {
