@@ -19,6 +19,12 @@ val apiBaseUrl = (
     if (base.endsWith('/')) base else "$base/"
 }
 
+val storePath = System.getenv("ANDROID_KEYSTORE_PATH") ?: keystoreProps.getProperty("storeFile")
+val storePasswordValue = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: keystoreProps.getProperty("storePassword")
+val keyAliasValue = System.getenv("ANDROID_KEY_ALIAS") ?: keystoreProps.getProperty("keyAlias")
+val keyPasswordValue = System.getenv("ANDROID_KEY_PASSWORD") ?: keystoreProps.getProperty("keyPassword")
+val hasCustomReleaseSigning = !storePath.isNullOrBlank() && !storePasswordValue.isNullOrBlank() && !keyAliasValue.isNullOrBlank() && !keyPasswordValue.isNullOrBlank()
+
 android {
     namespace = "com.medbill.tracker"
     compileSdk = 34
@@ -39,20 +45,23 @@ android {
 
     signingConfigs {
         create("release") {
-            val storePath = System.getenv("ANDROID_KEYSTORE_PATH") ?: keystoreProps.getProperty("storeFile")
             if (!storePath.isNullOrBlank()) {
                 storeFile = file(storePath)
             }
-            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: keystoreProps.getProperty("storePassword")
-            keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: keystoreProps.getProperty("keyAlias")
-            keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: keystoreProps.getProperty("keyPassword")
+            storePassword = storePasswordValue
+            keyAlias = keyAliasValue
+            keyPassword = keyPasswordValue
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = if (hasCustomReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
