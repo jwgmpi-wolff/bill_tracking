@@ -14,7 +14,7 @@ if (keystorePropsFile.exists()) {
 val apiBaseUrl = (
     System.getenv("MEDBILL_API_BASE_URL")
         ?: (project.findProperty("MEDBILL_API_BASE_URL") as String?)
-    ?: "https://app-medbill-api-6127.azurewebsites.net/"
+    ?: "https://app-medbill-api-3622.azurewebsites.net/"
 ).trim().let { base ->
     if (base.endsWith('/')) base else "$base/"
 }

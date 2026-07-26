@@ -48,8 +48,25 @@ $storageAccountName = "stmedbill$NameSuffix"
 $keyVaultName = "kv-medbill-tracker-$NameSuffix"
 $deploymentName = 'medbill-' + (Get-Date -Format 'yyyyMMddHHmmss')
 
-Write-Host "Creating resource group $ResourceGroup in $Location..." -ForegroundColor Cyan
-az group create --name $ResourceGroup --location $Location --output none
+Write-Host "Ensuring resource group $ResourceGroup exists..." -ForegroundColor Cyan
+$existingRg = $null
+try {
+    $existingRg = az group show --name $ResourceGroup --query "{name:name,location:location}" -o json | ConvertFrom-Json
+} catch {
+    $existingRg = $null
+}
+
+if ($null -ne $existingRg) {
+    if ($existingRg.location -ne $Location) {
+        Write-Host "Resource group $ResourceGroup already exists in $($existingRg.location). Continuing with existing location." -ForegroundColor Yellow
+        $Location = $existingRg.location
+    } else {
+        Write-Host "Resource group $ResourceGroup already exists in $Location. Continuing." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "Creating resource group $ResourceGroup in $Location..." -ForegroundColor Cyan
+    az group create --name $ResourceGroup --location $Location --output none
+}
 
 Write-Host "Deploying infrastructure ($deploymentName)..." -ForegroundColor Cyan
 $deployment = az deployment group create `
