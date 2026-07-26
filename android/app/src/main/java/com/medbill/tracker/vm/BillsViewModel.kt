@@ -2,6 +2,7 @@ package com.medbill.tracker.vm
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.medbill.tracker.BuildConfig
 import com.medbill.tracker.data.model.Bill
 import com.medbill.tracker.data.model.BillCreateRequest
 import com.medbill.tracker.data.model.Dashboard
@@ -89,7 +90,7 @@ class BillsViewModel : ViewModel() {
             }
 
             if (code == 401 || code == 403) {
-                return "Session expired or unauthorized. Sign out and sign in again."
+                return "Session expired or unauthorized on ${BuildConfig.BASE_URL}. Sign out and sign in again."
             }
 
             if (raw.isNotBlank()) {
