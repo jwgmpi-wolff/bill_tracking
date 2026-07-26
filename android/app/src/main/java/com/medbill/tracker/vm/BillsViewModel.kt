@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.medbill.tracker.BuildConfig
 import com.medbill.tracker.data.model.Bill
 import com.medbill.tracker.data.model.BillCreateRequest
+import com.medbill.tracker.data.model.BillEntryUpdateRequest
 import com.medbill.tracker.data.model.Dashboard
 import com.medbill.tracker.data.model.DocumentRecord
 import com.medbill.tracker.data.model.Provider
@@ -25,6 +26,7 @@ data class BillsState(
     val providerMatches: List<Provider> = emptyList(),
     val providerLookupError: String? = null,
     val documents: List<DocumentRecord> = emptyList(),
+    val documentUploadLoading: Boolean = false,
     val paymentRedirectUrl: String? = null,
     val error: String? = null
 )
@@ -64,17 +66,84 @@ class BillsViewModel : ViewModel() {
         }
     }
 
-    fun addBill(request: BillCreateRequest, onResult: (Boolean) -> Unit = {}) {
+    fun addBill(request: BillCreateRequest, onResult: (Boolean, Bill?) -> Unit = { _, _ -> }) {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true, error = null)
             runCatching {
-                repository.createBill(request)
+                val created = repository.createBill(request)
                 val dashboard = repository.getDashboard()
                 val bills = repository.getBills()
                 _state.value = _state.value.copy(loading = false, dashboard = dashboard, bills = bills)
-                onResult(true)
+                onResult(true, created)
             }.onFailure { throwable ->
                 _state.value = _state.value.copy(loading = false, error = mapAddBillError(throwable))
+                onResult(false, null)
+            }
+        }
+    }
+
+    fun updateBillEntry(billId: String, request: BillEntryUpdateRequest, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(loading = true, error = null)
+            runCatching {
+                val updated = repository.updateBillEntry(billId, request)
+                val bills = repository.getBills()
+                val dashboard = repository.getDashboard()
+                val docs = repository.getDocuments(billId)
+                _state.value = _state.value.copy(
+                    loading = false,
+                    selectedBill = updated,
+                    bills = bills,
+                    dashboard = dashboard,
+                    documents = docs
+                )
+                onResult(true)
+            }.onFailure { throwable ->
+                _state.value = _state.value.copy(loading = false, error = mapEntryUpdateError(throwable))
+                onResult(false)
+            }
+        }
+    }
+
+    fun uploadDocument(
+        billId: String,
+        fileName: String,
+        contentType: String,
+        bytes: ByteArray,
+        documentType: String,
+        onResult: (Boolean) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(documentUploadLoading = true, error = null)
+            runCatching {
+                repository.uploadDocument(billId, fileName, contentType, bytes, documentType)
+                val docs = repository.getDocuments(billId)
+                _state.value = _state.value.copy(documents = docs, documentUploadLoading = false)
+                onResult(true)
+            }.onFailure { throwable ->
+                _state.value = _state.value.copy(documentUploadLoading = false, error = mapDocumentUploadError(throwable))
+                onResult(false)
+            }
+        }
+    }
+
+    fun deleteBill(billId: String, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(loading = true, error = null)
+            runCatching {
+                repository.deleteBill(billId)
+                val dashboard = repository.getDashboard()
+                val bills = repository.getBills()
+                _state.value = _state.value.copy(
+                    loading = false,
+                    dashboard = dashboard,
+                    bills = bills,
+                    selectedBill = null,
+                    documents = emptyList()
+                )
+                onResult(true)
+            }.onFailure { throwable ->
+                _state.value = _state.value.copy(loading = false, error = mapDeleteBillError(throwable))
                 onResult(false)
             }
         }
@@ -101,6 +170,44 @@ class BillsViewModel : ViewModel() {
         }
 
         return throwable.message ?: "Unable to add bill"
+    }
+
+    private fun mapDeleteBillError(throwable: Throwable): String {
+        if (throwable is HttpException) {
+            return when (throwable.code()) {
+                401, 403 -> "Unauthorized. Sign out and sign in again."
+                404 -> "Bill not found. It may already be deleted."
+                else -> "Unable to delete bill (HTTP ${throwable.code()})."
+            }
+        }
+
+        return throwable.message ?: "Unable to delete bill"
+    }
+
+    private fun mapEntryUpdateError(throwable: Throwable): String {
+        if (throwable is HttpException) {
+            return when (throwable.code()) {
+                400 -> "Invalid edit values. Check dates, provider ID, and amounts."
+                401, 403 -> "Unauthorized. Sign out and sign in again."
+                404 -> "Bill not found."
+                else -> "Unable to update bill entry (HTTP ${throwable.code()})."
+            }
+        }
+
+        return throwable.message ?: "Unable to update bill entry"
+    }
+
+    private fun mapDocumentUploadError(throwable: Throwable): String {
+        if (throwable is HttpException) {
+            return when (throwable.code()) {
+                400 -> "Invalid file. Use PDF, PNG, or JPEG up to 10 MB."
+                401, 403 -> "Unauthorized. Sign out and sign in again."
+                404 -> "Bill not found."
+                else -> "Unable to upload document (HTTP ${throwable.code()})."
+            }
+        }
+
+        return throwable.message ?: "Unable to upload document"
     }
 
     fun createPaymentSession(amount: BigDecimal) {

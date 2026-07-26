@@ -138,6 +138,55 @@ public class BillsController : ControllerBase
         return Ok(bill);
     }
 
+    [HttpPut("{id:guid}/entry")]
+    public async Task<ActionResult<Bill>> UpdateBillEntry(Guid id, [FromBody] BillEntryUpdateRequest request, CancellationToken cancellationToken)
+    {
+        var user = await _userContext.GetOrCreateUserAsync(User, cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        if (string.IsNullOrWhiteSpace(request.InvoiceNumber))
+        {
+            return BadRequest("Invoice number is required.");
+        }
+
+        var userId = user.UserId;
+        var bill = await _db.Bills.FirstOrDefaultAsync(x => x.BillId == id && x.UserId == userId, cancellationToken);
+        if (bill is null)
+        {
+            return NotFound();
+        }
+
+        bill.ProviderId = request.ProviderId;
+        bill.InvoiceNumber = request.InvoiceNumber.Trim();
+        bill.AccountNumber = request.AccountNumber;
+        bill.ServiceDate = request.ServiceDate;
+        bill.BillDate = request.BillDate;
+        bill.DueDate = request.DueDate;
+        bill.TotalBilledAmount = request.TotalBilledAmount;
+        bill.InsurancePaidAmount = request.InsurancePaidAmount;
+        bill.DiscountAdjustmentAmount = request.DiscountAdjustmentAmount;
+        bill.PatientResponsibilityAmount = request.PatientResponsibilityAmount;
+        bill.IsOverdue = bill.DueDate < DateOnly.FromDateTime(DateTime.UtcNow) && bill.CurrentStatus != BillStatus.Paid;
+        bill.UpdatedAt = DateTimeOffset.UtcNow;
+
+        _db.BillStatusHistory.Add(new BillStatusHistory
+        {
+            StatusHistoryId = Guid.NewGuid(),
+            BillId = bill.BillId,
+            Status = bill.CurrentStatus,
+            ChangedAt = DateTimeOffset.UtcNow,
+            ChangedBy = userId.ToString(),
+            Notes = request.Notes ?? "Bill entry updated"
+        });
+
+        await _db.SaveChangesAsync(cancellationToken);
+        await _audit.WriteAsync(userId, "UpdateEntry", "Bill", bill.BillId.ToString(), "Success", HttpContext, cancellationToken);
+        return Ok(bill);
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteBill(Guid id, CancellationToken cancellationToken)
     {

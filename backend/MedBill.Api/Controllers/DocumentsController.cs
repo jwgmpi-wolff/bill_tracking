@@ -13,7 +13,14 @@ namespace MedBill.Api.Controllers;
 public class DocumentsController : ControllerBase
 {
     private const long MaxBytes = 10 * 1024 * 1024;
-    private static readonly string[] AllowedTypes = ["application/pdf", "image/png", "image/jpeg"];
+    private static readonly string[] AllowedTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "text/plain",
+        "image/png",
+        "image/jpeg"
+    ];
 
     private readonly AppDbContext _db;
     private readonly IDocumentService _documents;
@@ -50,7 +57,7 @@ public class DocumentsController : ControllerBase
 
     [HttpPost]
     [RequestSizeLimit(MaxBytes)]
-    public async Task<IActionResult> Upload(Guid billId, IFormFile file, CancellationToken cancellationToken)
+    public async Task<IActionResult> Upload(Guid billId, IFormFile file, [FromForm] string? documentType, CancellationToken cancellationToken)
     {
         var user = await _userContext.GetOrCreateUserAsync(User, cancellationToken);
         if (user is null)
@@ -79,12 +86,16 @@ public class DocumentsController : ControllerBase
         var blobName = await _documents.UploadAsync(file.FileName, stream, file.ContentType, cancellationToken);
         var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(file.OpenReadStream()));
 
+        var normalizedType = string.IsNullOrWhiteSpace(documentType)
+            ? (file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ? "Scan" : "Document")
+            : documentType.Trim();
+
         var doc = new DocumentRecord
         {
             DocumentId = Guid.NewGuid(),
             BillId = billId,
             UserId = userId,
-            DocumentType = "Invoice",
+            DocumentType = normalizedType,
             BlobUri = blobName,
             FileName = file.FileName,
             ContentType = file.ContentType,

@@ -36,6 +36,7 @@ data class Provider(
 data class DocumentRecord(
     val documentId: String,
     val billId: String,
+    val documentType: String? = null,
     val fileName: String,
     val contentType: String,
     val uploadedAt: String,
@@ -59,6 +60,20 @@ data class BillCreateRequest(
 data class BillUpdateRequest(
     val currentStatus: BillStatus,
     val amountPaid: BigDecimal,
+    val notes: String?
+)
+
+data class BillEntryUpdateRequest(
+    val providerId: String,
+    val invoiceNumber: String,
+    val accountNumber: String?,
+    val serviceDate: String,
+    val billDate: String,
+    val dueDate: String,
+    val totalBilledAmount: BigDecimal,
+    val insurancePaidAmount: BigDecimal,
+    val discountAdjustmentAmount: BigDecimal,
+    val patientResponsibilityAmount: BigDecimal,
     val notes: String?
 )
 

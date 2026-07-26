@@ -3,6 +3,7 @@ package com.medbill.tracker.ui.screens
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -45,6 +46,8 @@ import androidx.navigation.navArgument
 import com.medbill.tracker.auth.AuthManager
 import com.medbill.tracker.data.model.Bill
 import com.medbill.tracker.data.model.BillCreateRequest
+import com.medbill.tracker.data.model.BillEntryUpdateRequest
+import com.medbill.tracker.data.model.DocumentRecord
 import com.medbill.tracker.data.model.Provider
 import com.medbill.tracker.ui.components.MedBillBottomNav
 import com.medbill.tracker.ui.navigation.Route
@@ -270,6 +273,26 @@ private suspend fun scanBillFromImage(context: android.content.Context, imageUri
     }
 }
 
+private fun readUriBytes(context: android.content.Context, uri: Uri): ByteArray? {
+    return context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+}
+
+private fun resolveUriFileName(context: android.content.Context, uri: Uri): String {
+    var displayName: String? = null
+    context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+        val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        if (index >= 0 && cursor.moveToFirst()) {
+            displayName = cursor.getString(index)
+        }
+    }
+
+    return displayName ?: "upload-${System.currentTimeMillis()}"
+}
+
+private fun resolveContentType(context: android.content.Context, uri: Uri): String {
+    return context.contentResolver.getType(uri) ?: "application/octet-stream"
+}
+
 @Composable
 fun AppRoot(billsViewModel: BillsViewModel) {
     val context = LocalContext.current
@@ -339,10 +362,29 @@ fun AppRoot(billsViewModel: BillsViewModel) {
                     error = billsState.error,
                     onProviderQuery = { query -> billsViewModel.lookupProvidersByName(query) },
                     onProviderSelected = { _ -> billsViewModel.clearProviderLookup() }
-                ) { request ->
-                    billsViewModel.addBill(request) { saved ->
+                ) { request, scannedUri ->
+                    billsViewModel.addBill(request) { saved, created ->
                         if (saved) {
-                            navController.navigate(Route.Bills.path)
+                            if (created != null && scannedUri != null) {
+                                val bytes = readUriBytes(context, scannedUri)
+                                if (bytes != null) {
+                                    val fileName = resolveUriFileName(context, scannedUri)
+                                    val contentType = resolveContentType(context, scannedUri)
+                                    billsViewModel.uploadDocument(
+                                        billId = created.billId,
+                                        fileName = fileName,
+                                        contentType = contentType,
+                                        bytes = bytes,
+                                        documentType = "Scan"
+                                    ) {
+                                        navController.navigate(Route.Bills.path)
+                                    }
+                                } else {
+                                    navController.navigate(Route.Bills.path)
+                                }
+                            } else {
+                                navController.navigate(Route.Bills.path)
+                            }
                         }
                     }
                 }
@@ -354,8 +396,20 @@ fun AppRoot(billsViewModel: BillsViewModel) {
             ) {
                 BillDetailScreen(
                     bill = billsState.selectedBill,
+                    loading = billsState.loading,
+                    error = billsState.error,
                     onPay = { navController.navigate(Route.Payment.path) },
-                    onViewDocs = { navController.navigate(Route.Documents.path) }
+                    onViewDocs = { navController.navigate(Route.Documents.path) },
+                    onSaveEntry = { billId, update -> billsViewModel.updateBillEntry(billId, update) },
+                    onDelete = { billId ->
+                        billsViewModel.deleteBill(billId) { deleted ->
+                            if (deleted) {
+                                navController.navigate(Route.Bills.path) {
+                                    popUpTo(Route.Bills.path) { inclusive = false }
+                                }
+                            }
+                        }
+                    }
                 )
             }
 
@@ -372,7 +426,26 @@ fun AppRoot(billsViewModel: BillsViewModel) {
             }
 
             composable(Route.Documents.path) {
-                DocumentsScreen(billsState.documents)
+                DocumentsScreen(
+                    billId = billsState.selectedBill?.billId,
+                    documents = billsState.documents,
+                    uploading = billsState.documentUploadLoading,
+                    error = billsState.error,
+                    onUpload = { billId, uri, type ->
+                        val bytes = readUriBytes(context, uri)
+                        if (bytes != null) {
+                            val fileName = resolveUriFileName(context, uri)
+                            val contentType = resolveContentType(context, uri)
+                            billsViewModel.uploadDocument(
+                                billId = billId,
+                                fileName = fileName,
+                                contentType = contentType,
+                                bytes = bytes,
+                                documentType = type
+                            )
+                        }
+                    }
+                )
             }
 
             composable(Route.Settings.path) {
@@ -477,7 +550,7 @@ private fun AddBillScreen(
     error: String?,
     onProviderQuery: (String) -> Unit,
     onProviderSelected: (Provider) -> Unit,
-    onSubmit: (BillCreateRequest) -> Unit
+    onSubmit: (BillCreateRequest, Uri?) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -496,11 +569,14 @@ private fun AddBillScreen(
     var localError by remember { mutableStateOf<String?>(null) }
     var scanError by remember { mutableStateOf<String?>(null) }
     var scanInProgress by remember { mutableStateOf(false) }
+    var scannedImageUri by remember { mutableStateOf<Uri?>(null) }
 
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri == null) {
             return@rememberLauncherForActivityResult
         }
+
+        scannedImageUri = uri
 
         scope.launch {
             scanInProgress = true
@@ -697,7 +773,8 @@ private fun AddBillScreen(
                         discountAdjustmentAmount = adjustments,
                         patientResponsibilityAmount = responsibility,
                         notes = notes.ifBlank { null }
-                    )
+                    ),
+                    scannedImageUri
                 )
             }) {
                 Text(if (loading) "Saving..." else "Save Bill")
@@ -714,7 +791,15 @@ private fun AddBillScreen(
 }
 
 @Composable
-private fun BillDetailScreen(bill: Bill?, onPay: () -> Unit, onViewDocs: () -> Unit) {
+private fun BillDetailScreen(
+    bill: Bill?,
+    loading: Boolean,
+    error: String?,
+    onPay: () -> Unit,
+    onViewDocs: () -> Unit,
+    onSaveEntry: (String, BillEntryUpdateRequest) -> Unit,
+    onDelete: (String) -> Unit
+) {
     if (bill == null) {
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             Text("Select a bill from Bills tab.")
@@ -722,18 +807,90 @@ private fun BillDetailScreen(bill: Bill?, onPay: () -> Unit, onViewDocs: () -> U
         return
     }
 
+    var providerId by remember(bill.billId) { mutableStateOf(bill.providerId) }
+    var invoiceNumber by remember(bill.billId) { mutableStateOf(bill.invoiceNumber) }
+    var accountNumber by remember(bill.billId) { mutableStateOf(bill.accountNumber.orEmpty()) }
+    var serviceDate by remember(bill.billId) { mutableStateOf(bill.serviceDate) }
+    var billDate by remember(bill.billId) { mutableStateOf(bill.billDate) }
+    var dueDate by remember(bill.billId) { mutableStateOf(bill.dueDate) }
+    var totalBilledAmount by remember(bill.billId) { mutableStateOf(bill.totalBilledAmount.toPlainString()) }
+    var insurancePaidAmount by remember(bill.billId) { mutableStateOf(bill.insurancePaidAmount.toPlainString()) }
+    var discountAdjustmentAmount by remember(bill.billId) { mutableStateOf(bill.discountAdjustmentAmount.toPlainString()) }
+    var patientResponsibilityAmount by remember(bill.billId) { mutableStateOf(bill.patientResponsibilityAmount.toPlainString()) }
+    var localError by remember(bill.billId) { mutableStateOf<String?>(null) }
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Bill Detail", style = MaterialTheme.typography.headlineMedium)
-        Text("Invoice ${bill.invoiceNumber}")
-        Text("Service date ${bill.serviceDate}")
-        Text("Bill date ${bill.billDate}")
-        Text("Due date ${bill.dueDate}")
         Text("Status ${bill.currentStatus}")
-        Text("Patient responsibility ${bill.patientResponsibilityAmount}")
         Text("Amount paid ${bill.amountPaid}")
+
+        OutlinedTextField(value = providerId, onValueChange = { providerId = it }, label = { Text("Provider ID") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = invoiceNumber, onValueChange = { invoiceNumber = it }, label = { Text("Invoice Number") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = accountNumber, onValueChange = { accountNumber = it }, label = { Text("Account Number") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = serviceDate, onValueChange = { serviceDate = it }, label = { Text("Service Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = billDate, onValueChange = { billDate = it }, label = { Text("Bill Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = dueDate, onValueChange = { dueDate = it }, label = { Text("Due Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = totalBilledAmount, onValueChange = { totalBilledAmount = it }, label = { Text("Total Billed") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = insurancePaidAmount, onValueChange = { insurancePaidAmount = it }, label = { Text("Insurance Paid") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = discountAdjustmentAmount, onValueChange = { discountAdjustmentAmount = it }, label = { Text("Adjustments") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = patientResponsibilityAmount, onValueChange = { patientResponsibilityAmount = it }, label = { Text("Patient Responsibility") }, modifier = Modifier.fillMaxWidth())
+
+        if (!localError.isNullOrBlank()) {
+            Text(localError.orEmpty(), color = MaterialTheme.colorScheme.error)
+        }
+        if (!error.isNullOrBlank()) {
+            Text(error, color = MaterialTheme.colorScheme.error)
+        }
+
+        Button(enabled = !loading, onClick = {
+            localError = null
+
+            val parsedProvider = runCatching { UUID.fromString(providerId) }.getOrNull()
+            if (parsedProvider == null) {
+                localError = "Provider ID must be a valid GUID."
+                return@Button
+            }
+
+            if (invoiceNumber.isBlank()) {
+                localError = "Invoice Number is required."
+                return@Button
+            }
+
+            val total = totalBilledAmount.toBigDecimalOrNull()
+            val insurance = insurancePaidAmount.toBigDecimalOrNull()
+            val adjustments = discountAdjustmentAmount.toBigDecimalOrNull()
+            val responsibility = patientResponsibilityAmount.toBigDecimalOrNull()
+            if (total == null || insurance == null || adjustments == null || responsibility == null) {
+                localError = "Amounts must be valid decimals like 128.00."
+                return@Button
+            }
+
+            onSaveEntry(
+                bill.billId,
+                BillEntryUpdateRequest(
+                    providerId = parsedProvider.toString(),
+                    invoiceNumber = invoiceNumber,
+                    accountNumber = accountNumber.ifBlank { null },
+                    serviceDate = serviceDate,
+                    billDate = billDate,
+                    dueDate = dueDate,
+                    totalBilledAmount = total,
+                    insurancePaidAmount = insurance,
+                    discountAdjustmentAmount = adjustments,
+                    patientResponsibilityAmount = responsibility,
+                    notes = "Entry edited in app"
+                )
+            )
+        }) {
+            Text(if (loading) "Saving Changes..." else "Save Entry Changes")
+        }
+
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = onPay) { Text("Pay") }
-            Button(onClick = onViewDocs) { Text("Documents") }
+            Button(onClick = onPay, enabled = !loading) { Text("Pay") }
+            Button(onClick = onViewDocs, enabled = !loading) { Text("Documents") }
+            Button(onClick = { onDelete(bill.billId) }, enabled = !loading) {
+                Text(if (loading) "Deleting..." else "Delete Bill")
+            }
         }
     }
 }
@@ -759,16 +916,52 @@ private fun PaymentScreen(bill: Bill?, redirectUrl: String?, onPay: (BigDecimal)
 }
 
 @Composable
-private fun DocumentsScreen(documents: List<com.medbill.tracker.data.model.DocumentRecord>) {
+private fun DocumentsScreen(
+    billId: String?,
+    documents: List<DocumentRecord>,
+    uploading: Boolean,
+    error: String?,
+    onUpload: (billId: String, uri: Uri, documentType: String) -> Unit
+) {
+    val scanPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null && !billId.isNullOrBlank()) {
+            onUpload(billId, uri, "Scan")
+        }
+    }
+    val docPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null && !billId.isNullOrBlank()) {
+            onUpload(billId, uri, "Document")
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Documents", style = MaterialTheme.typography.headlineMedium)
-        LazyColumn(modifier = Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(documents) { doc ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(doc.fileName, style = MaterialTheme.typography.titleMedium)
-                        Text(doc.contentType)
-                        Text("Uploaded ${doc.uploadedAt}")
+
+        if (billId.isNullOrBlank()) {
+            Text("Select a bill first to upload or view documents.", modifier = Modifier.padding(top = 10.dp))
+        } else {
+            Row(modifier = Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(enabled = !uploading, onClick = { scanPicker.launch("image/*") }) {
+                    Text(if (uploading) "Uploading..." else "Upload Scan")
+                }
+                Button(enabled = !uploading, onClick = { docPicker.launch("*/*") }) {
+                    Text("Upload Document")
+                }
+            }
+
+            if (!error.isNullOrBlank()) {
+                Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 10.dp))
+            }
+
+            LazyColumn(modifier = Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(documents) { doc ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(doc.fileName, style = MaterialTheme.typography.titleMedium)
+                            Text("Type ${doc.documentType ?: "Document"}")
+                            Text(doc.contentType)
+                            Text("Uploaded ${doc.uploadedAt}")
+                        }
                     }
                 }
             }

@@ -15,6 +15,19 @@ public record BillCreateRequest(
     decimal PatientResponsibilityAmount,
     string? Notes);
 
+public record BillEntryUpdateRequest(
+    Guid ProviderId,
+    string InvoiceNumber,
+    string? AccountNumber,
+    DateOnly ServiceDate,
+    DateOnly BillDate,
+    DateOnly DueDate,
+    decimal TotalBilledAmount,
+    decimal InsurancePaidAmount,
+    decimal DiscountAdjustmentAmount,
+    decimal PatientResponsibilityAmount,
+    string? Notes);
+
 public record BillUpdateRequest(
     BillStatus CurrentStatus,
     decimal AmountPaid,
