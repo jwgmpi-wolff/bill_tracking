@@ -9,6 +9,7 @@ import com.medbill.tracker.data.model.DocumentRecord
 import com.medbill.tracker.data.model.PaymentSessionRequest
 import com.medbill.tracker.data.model.PaymentSessionResponse
 import com.medbill.tracker.data.model.AuthMe
+import com.medbill.tracker.data.model.Provider
 import java.math.BigDecimal
 
 class BillsRepository {
@@ -27,6 +28,8 @@ class BillsRepository {
     suspend fun deleteBill(id: String) = api.deleteBill(id)
 
     suspend fun getDashboard(): Dashboard = api.getDashboard()
+
+    suspend fun lookupProvidersByName(query: String): List<Provider> = api.getProviders(query)
 
     suspend fun getDocuments(billId: String): List<DocumentRecord> = api.getDocuments(billId)
 

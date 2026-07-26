@@ -8,11 +8,13 @@ import com.medbill.tracker.data.model.DocumentRecord
 import com.medbill.tracker.data.model.PaymentSessionRequest
 import com.medbill.tracker.data.model.PaymentSessionResponse
 import com.medbill.tracker.data.model.AuthMe
+import com.medbill.tracker.data.model.Provider
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 import retrofit2.http.PUT
 
 interface ApiService {
@@ -36,6 +38,9 @@ interface ApiService {
 
     @GET("api/dashboard")
     suspend fun getDashboard(): Dashboard
+
+    @GET("api/providers")
+    suspend fun getProviders(@Query("query") query: String): List<Provider>
 
     @GET("api/bills/{billId}/documents")
     suspend fun getDocuments(@Path("billId") billId: String): List<DocumentRecord>

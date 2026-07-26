@@ -25,3 +25,5 @@ public record PaymentSessionRequest(decimal Amount, string Currency);
 public record PaymentSessionResponse(string Provider, string SessionId, string RedirectUrl);
 
 public record DashboardResponse(decimal TotalOutstanding, decimal PaidThisYear, int OverdueCount, int DueInNext14Days);
+
+public record ProviderLookupResponse(Guid ProviderId, string ProviderName, string? BillingPhone, string? BillingPortalUrl);

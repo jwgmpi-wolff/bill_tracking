@@ -40,6 +40,7 @@ import androidx.navigation.navArgument
 import com.medbill.tracker.auth.AuthManager
 import com.medbill.tracker.data.model.Bill
 import com.medbill.tracker.data.model.BillCreateRequest
+import com.medbill.tracker.data.model.Provider
 import com.medbill.tracker.ui.components.MedBillBottomNav
 import com.medbill.tracker.ui.navigation.Route
 import com.medbill.tracker.vm.AuthViewModel
@@ -110,7 +111,11 @@ fun AppRoot(billsViewModel: BillsViewModel) {
             composable(Route.AddBill.path) {
                 AddBillScreen(
                     loading = billsState.loading,
-                    error = billsState.error
+                    providerLookupLoading = billsState.providerLookupLoading,
+                    providerMatches = billsState.providerMatches,
+                    error = billsState.error,
+                    onProviderQuery = { query -> billsViewModel.lookupProvidersByName(query) },
+                    onProviderSelected = { _ -> billsViewModel.clearProviderLookup() }
                 ) { request ->
                     billsViewModel.addBill(request) { saved ->
                         if (saved) {
@@ -243,9 +248,14 @@ private fun BillsScreen(bills: List<Bill>, onSelect: (Bill) -> Unit) {
 @Composable
 private fun AddBillScreen(
     loading: Boolean,
+    providerLookupLoading: Boolean,
+    providerMatches: List<Provider>,
     error: String?,
+    onProviderQuery: (String) -> Unit,
+    onProviderSelected: (Provider) -> Unit,
     onSubmit: (BillCreateRequest) -> Unit
 ) {
+    var providerSearch by remember { mutableStateOf("") }
     var providerId by remember { mutableStateOf("") }
     var invoiceNumber by remember { mutableStateOf("") }
     var accountNumber by remember { mutableStateOf("") }
@@ -261,7 +271,46 @@ private fun AddBillScreen(
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Text("Add Bill", style = MaterialTheme.typography.headlineMedium) }
-        item { OutlinedTextField(value = providerId, onValueChange = { providerId = it }, label = { Text("Provider ID") }, modifier = Modifier.fillMaxWidth()) }
+        item {
+            OutlinedTextField(
+                value = providerSearch,
+                onValueChange = {
+                    providerSearch = it
+                    if (it.trim().length >= 2) {
+                        onProviderQuery(it)
+                    } else {
+                        onProviderQuery("")
+                    }
+                },
+                label = { Text("Provider Name Lookup") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        if (providerLookupLoading) {
+            item { Text("Searching providers...") }
+        }
+        if (providerMatches.isNotEmpty()) {
+            items(providerMatches) { provider ->
+                Card(modifier = Modifier.fillMaxWidth().clickable {
+                    providerSearch = provider.providerName
+                    providerId = provider.providerId
+                    onProviderSelected(provider)
+                }) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(provider.providerName, style = MaterialTheme.typography.titleMedium)
+                        Text("ID ${provider.providerId}")
+                    }
+                }
+            }
+        }
+        item {
+            OutlinedTextField(
+                value = providerId,
+                onValueChange = { providerId = it },
+                label = { Text("Provider ID") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
         item { OutlinedTextField(value = invoiceNumber, onValueChange = { invoiceNumber = it }, label = { Text("Invoice Number") }, modifier = Modifier.fillMaxWidth()) }
         item { OutlinedTextField(value = accountNumber, onValueChange = { accountNumber = it }, label = { Text("Account Number") }, modifier = Modifier.fillMaxWidth()) }
         item { OutlinedTextField(value = serviceDate, onValueChange = { serviceDate = it }, label = { Text("Service Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth()) }

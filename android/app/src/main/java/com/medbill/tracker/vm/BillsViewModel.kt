@@ -6,6 +6,7 @@ import com.medbill.tracker.data.model.Bill
 import com.medbill.tracker.data.model.BillCreateRequest
 import com.medbill.tracker.data.model.Dashboard
 import com.medbill.tracker.data.model.DocumentRecord
+import com.medbill.tracker.data.model.Provider
 import com.medbill.tracker.data.repository.BillsRepository
 import java.math.BigDecimal
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +20,8 @@ data class BillsState(
     val dashboard: Dashboard? = null,
     val bills: List<Bill> = emptyList(),
     val selectedBill: Bill? = null,
+    val providerLookupLoading: Boolean = false,
+    val providerMatches: List<Provider> = emptyList(),
     val documents: List<DocumentRecord> = emptyList(),
     val paymentRedirectUrl: String? = null,
     val error: String? = null
@@ -108,6 +111,28 @@ class BillsViewModel : ViewModel() {
                 _state.value = _state.value.copy(error = "Unable to create payment session")
             }
         }
+    }
+
+    fun lookupProvidersByName(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) {
+            _state.value = _state.value.copy(providerMatches = emptyList(), providerLookupLoading = false)
+            return
+        }
+
+        viewModelScope.launch {
+            _state.value = _state.value.copy(providerLookupLoading = true, error = null)
+            runCatching {
+                val providers = repository.lookupProvidersByName(trimmed)
+                _state.value = _state.value.copy(providerMatches = providers, providerLookupLoading = false)
+            }.onFailure {
+                _state.value = _state.value.copy(providerMatches = emptyList(), providerLookupLoading = false, error = "Unable to search providers")
+            }
+        }
+    }
+
+    fun clearProviderLookup() {
+        _state.value = _state.value.copy(providerMatches = emptyList(), providerLookupLoading = false)
     }
 
     fun clearPaymentRedirect() {
