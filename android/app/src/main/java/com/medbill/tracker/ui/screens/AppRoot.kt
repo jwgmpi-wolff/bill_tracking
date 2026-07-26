@@ -819,30 +819,34 @@ private fun BillDetailScreen(
     var patientResponsibilityAmount by remember(bill.billId) { mutableStateOf(bill.patientResponsibilityAmount.toPlainString()) }
     var localError by remember(bill.billId) { mutableStateOf<String?>(null) }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Bill Detail", style = MaterialTheme.typography.headlineMedium)
-        Text("Status ${bill.currentStatus}")
-        Text("Amount paid ${bill.amountPaid}")
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item { Text("Bill Detail", style = MaterialTheme.typography.headlineMedium) }
+        item { Text("Status ${bill.currentStatus}") }
+        item { Text("Amount paid ${bill.amountPaid}") }
 
-        OutlinedTextField(value = providerId, onValueChange = { providerId = it }, label = { Text("Provider ID") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = invoiceNumber, onValueChange = { invoiceNumber = it }, label = { Text("Invoice Number") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = accountNumber, onValueChange = { accountNumber = it }, label = { Text("Account Number") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = serviceDate, onValueChange = { serviceDate = it }, label = { Text("Service Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = billDate, onValueChange = { billDate = it }, label = { Text("Bill Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = dueDate, onValueChange = { dueDate = it }, label = { Text("Due Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = totalBilledAmount, onValueChange = { totalBilledAmount = it }, label = { Text("Total Billed") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = insurancePaidAmount, onValueChange = { insurancePaidAmount = it }, label = { Text("Insurance Paid") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = discountAdjustmentAmount, onValueChange = { discountAdjustmentAmount = it }, label = { Text("Adjustments") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = patientResponsibilityAmount, onValueChange = { patientResponsibilityAmount = it }, label = { Text("Patient Responsibility") }, modifier = Modifier.fillMaxWidth())
+        item { OutlinedTextField(value = providerId, onValueChange = { providerId = it }, label = { Text("Provider ID") }, modifier = Modifier.fillMaxWidth()) }
+        item { OutlinedTextField(value = invoiceNumber, onValueChange = { invoiceNumber = it }, label = { Text("Invoice Number") }, modifier = Modifier.fillMaxWidth()) }
+        item { OutlinedTextField(value = accountNumber, onValueChange = { accountNumber = it }, label = { Text("Account Number") }, modifier = Modifier.fillMaxWidth()) }
+        item { OutlinedTextField(value = serviceDate, onValueChange = { serviceDate = it }, label = { Text("Service Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth()) }
+        item { OutlinedTextField(value = billDate, onValueChange = { billDate = it }, label = { Text("Bill Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth()) }
+        item { OutlinedTextField(value = dueDate, onValueChange = { dueDate = it }, label = { Text("Due Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth()) }
+        item { OutlinedTextField(value = totalBilledAmount, onValueChange = { totalBilledAmount = it }, label = { Text("Total Billed") }, modifier = Modifier.fillMaxWidth()) }
+        item { OutlinedTextField(value = insurancePaidAmount, onValueChange = { insurancePaidAmount = it }, label = { Text("Insurance Paid") }, modifier = Modifier.fillMaxWidth()) }
+        item { OutlinedTextField(value = discountAdjustmentAmount, onValueChange = { discountAdjustmentAmount = it }, label = { Text("Adjustments") }, modifier = Modifier.fillMaxWidth()) }
+        item { OutlinedTextField(value = patientResponsibilityAmount, onValueChange = { patientResponsibilityAmount = it }, label = { Text("Patient Responsibility") }, modifier = Modifier.fillMaxWidth()) }
 
         if (!localError.isNullOrBlank()) {
-            Text(localError.orEmpty(), color = MaterialTheme.colorScheme.error)
+            item { Text(localError.orEmpty(), color = MaterialTheme.colorScheme.error) }
         }
         if (!error.isNullOrBlank()) {
-            Text(error, color = MaterialTheme.colorScheme.error)
+            item { Text(error, color = MaterialTheme.colorScheme.error) }
         }
 
-        Button(enabled = !loading, onClick = {
+        item {
+            Button(enabled = !loading, onClick = {
             localError = null
 
             val parsedProvider = runCatching { UUID.fromString(providerId) }.getOrNull()
@@ -881,15 +885,18 @@ private fun BillDetailScreen(
                     notes = "Entry edited in app"
                 )
             )
-        }) {
-            Text(if (loading) "Saving Changes..." else "Save Entry Changes")
+            }) {
+                Text(if (loading) "Saving Changes..." else "Save Entry Changes")
+            }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(onClick = onPay, enabled = !loading) { Text("Pay") }
-            Button(onClick = onViewDocs, enabled = !loading) { Text("Documents") }
-            Button(onClick = { onDelete(bill.billId) }, enabled = !loading) {
-                Text(if (loading) "Deleting..." else "Delete Bill")
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = onPay, enabled = !loading) { Text("Pay") }
+                Button(onClick = onViewDocs, enabled = !loading) { Text("Documents") }
+                Button(onClick = { onDelete(bill.billId) }, enabled = !loading) {
+                    Text(if (loading) "Deleting..." else "Delete Bill")
+                }
             }
         }
     }
