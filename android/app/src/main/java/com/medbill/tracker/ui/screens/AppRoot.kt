@@ -3,6 +3,8 @@ package com.medbill.tracker.ui.screens
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,6 +30,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,8 +50,14 @@ import com.medbill.tracker.ui.components.MedBillBottomNav
 import com.medbill.tracker.ui.navigation.Route
 import com.medbill.tracker.vm.AuthViewModel
 import com.medbill.tracker.vm.BillsViewModel
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.math.BigDecimal
+import java.util.Locale
 import java.util.UUID
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 private data class BillSample(
     val providerName: String,
@@ -139,6 +148,127 @@ private val deltaDentalSample = BillSample(
     patientResponsibilityAmount = "0.00",
     notes = "Delta Dental EOB sample from image"
 )
+
+private data class ScannedBillData(
+    val providerName: String?,
+    val providerId: String?,
+    val invoiceNumber: String?,
+    val accountNumber: String?,
+    val serviceDate: String?,
+    val billDate: String?,
+    val dueDate: String?,
+    val totalBilledAmount: String?,
+    val insurancePaidAmount: String?,
+    val discountAdjustmentAmount: String?,
+    val patientResponsibilityAmount: String?
+)
+
+private fun normalizeDate(raw: String): String? {
+    val parts = raw.replace('.', '-').replace('/', '-').split('-')
+    if (parts.size != 3) {
+        return null
+    }
+
+    val year = parts[0].toIntOrNull() ?: return null
+    val month = parts[1].toIntOrNull() ?: return null
+    val day = parts[2].toIntOrNull() ?: return null
+
+    if (year !in 2000..2100 || month !in 1..12 || day !in 1..31) {
+        return null
+    }
+
+    return String.format(Locale.US, "%04d-%02d-%02d", year, month, day)
+}
+
+private fun findDateForKeywords(lines: List<String>, keywords: List<String>): String? {
+    val dateRegex = Regex("\\b(20\\d{2}[./-]\\d{1,2}[./-]\\d{1,2})\\b")
+    for (line in lines) {
+        val lower = line.lowercase()
+        if (keywords.any { lower.contains(it) }) {
+            val match = dateRegex.find(line)?.groupValues?.get(1)
+            val normalized = match?.let { normalizeDate(it) }
+            if (!normalized.isNullOrBlank()) {
+                return normalized
+            }
+        }
+    }
+    return null
+}
+
+private fun extractAmountForKeywords(lines: List<String>, keywords: List<String>): String? {
+    val amountRegex = Regex("(?<!\\d)(\\d{1,3}(?:,\\d{3})*(?:\\.\\d{2})|\\d+\\.\\d{2})(?!\\d)")
+    for (line in lines) {
+        val lower = line.lowercase()
+        if (keywords.any { lower.contains(it) }) {
+            val amount = amountRegex.find(line)?.groupValues?.get(1)?.replace(",", "")
+            if (!amount.isNullOrBlank()) {
+                return amount
+            }
+        }
+    }
+    return null
+}
+
+private fun parseBillFromOcrText(text: String): ScannedBillData {
+    val lines = text.lines().map { it.trim() }.filter { it.isNotBlank() }
+    val joinedLower = lines.joinToString("\n").lowercase()
+
+    val providerName = when {
+        "delta dental" in joinedLower -> "Delta Dental"
+        "premera" in joinedLower -> "Premera Blue Cross (EOB)"
+        "foot & ankle" in joinedLower || "foot and ankle" in joinedLower -> "Foot & Ankle Centers of Washington"
+        "norco" in joinedLower -> "Norco"
+        else -> null
+    }
+
+    val providerId = when (providerName) {
+        "Delta Dental" -> deltaDentalSample.providerId
+        "Premera Blue Cross (EOB)" -> premeraSample.providerId
+        "Foot & Ankle Centers of Washington" -> footAndAnkleSample.providerId
+        "Norco" -> norcoSample.providerId
+        else -> null
+    }
+
+    val invoiceRegex = Regex("(?:invoice|claim|statement|bill)\\s*(?:#|number|no\\.?|id)?\\s*[:\\-]?\\s*([A-Za-z0-9-]{4,})", RegexOption.IGNORE_CASE)
+    val accountRegex = Regex("(?:account|member)\\s*(?:#|number|no\\.?|id)?\\s*[:\\-]?\\s*([A-Za-z0-9-]{4,})", RegexOption.IGNORE_CASE)
+    val allDates = Regex("\\b20\\d{2}[./-]\\d{1,2}[./-]\\d{1,2}\\b")
+        .findAll(text)
+        .mapNotNull { normalizeDate(it.value) }
+        .distinct()
+        .toList()
+
+    val dueDate = findDateForKeywords(lines, listOf("due")) ?: allDates.getOrNull(2)
+    val serviceDate = findDateForKeywords(lines, listOf("service", "date of service")) ?: allDates.firstOrNull()
+    val billDate = findDateForKeywords(lines, listOf("bill date", "statement date", "date issued")) ?: allDates.getOrNull(1)
+
+    return ScannedBillData(
+        providerName = providerName,
+        providerId = providerId,
+        invoiceNumber = invoiceRegex.find(text)?.groupValues?.getOrNull(1),
+        accountNumber = accountRegex.find(text)?.groupValues?.getOrNull(1),
+        serviceDate = serviceDate,
+        billDate = billDate,
+        dueDate = dueDate,
+        totalBilledAmount = extractAmountForKeywords(lines, listOf("total billed", "total amount", "amount billed", "charges")),
+        insurancePaidAmount = extractAmountForKeywords(lines, listOf("insurance paid", "paid by plan", "plan paid", "benefit paid")),
+        discountAdjustmentAmount = extractAmountForKeywords(lines, listOf("adjustment", "discount", "contractual", "write-off")),
+        patientResponsibilityAmount = extractAmountForKeywords(lines, listOf("patient responsibility", "you owe", "amount due", "member responsibility"))
+    )
+}
+
+private suspend fun scanBillFromImage(context: android.content.Context, imageUri: Uri): ScannedBillData {
+    val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    return try {
+        val image = InputImage.fromFilePath(context, imageUri)
+        val result = recognizer.process(image).await()
+        if (result.text.isBlank()) {
+            throw IllegalStateException("No readable text found in image")
+        }
+        parseBillFromOcrText(result.text)
+    } finally {
+        recognizer.close()
+    }
+}
 
 @Composable
 fun AppRoot(billsViewModel: BillsViewModel) {
@@ -349,6 +479,8 @@ private fun AddBillScreen(
     onProviderSelected: (Provider) -> Unit,
     onSubmit: (BillCreateRequest) -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var providerSearch by remember { mutableStateOf("") }
     var providerId by remember { mutableStateOf("") }
     var invoiceNumber by remember { mutableStateOf("") }
@@ -362,6 +494,62 @@ private fun AddBillScreen(
     var patientResponsibilityAmount by remember { mutableStateOf("0.00") }
     var notes by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
+    var scanError by remember { mutableStateOf<String?>(null) }
+    var scanInProgress by remember { mutableStateOf(false) }
+
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) {
+            return@rememberLauncherForActivityResult
+        }
+
+        scope.launch {
+            scanInProgress = true
+            scanError = null
+            runCatching {
+                scanBillFromImage(context, uri)
+            }.onSuccess { scanned ->
+                if (!scanned.providerName.isNullOrBlank()) {
+                    providerSearch = scanned.providerName
+                }
+                if (!scanned.providerId.isNullOrBlank()) {
+                    providerId = scanned.providerId
+                }
+                if (!scanned.invoiceNumber.isNullOrBlank()) {
+                    invoiceNumber = scanned.invoiceNumber
+                }
+                if (!scanned.accountNumber.isNullOrBlank()) {
+                    accountNumber = scanned.accountNumber
+                }
+                if (!scanned.serviceDate.isNullOrBlank()) {
+                    serviceDate = scanned.serviceDate
+                }
+                if (!scanned.billDate.isNullOrBlank()) {
+                    billDate = scanned.billDate
+                }
+                if (!scanned.dueDate.isNullOrBlank()) {
+                    dueDate = scanned.dueDate
+                }
+                if (!scanned.totalBilledAmount.isNullOrBlank()) {
+                    totalBilledAmount = scanned.totalBilledAmount
+                }
+                if (!scanned.insurancePaidAmount.isNullOrBlank()) {
+                    insurancePaidAmount = scanned.insurancePaidAmount
+                }
+                if (!scanned.discountAdjustmentAmount.isNullOrBlank()) {
+                    discountAdjustmentAmount = scanned.discountAdjustmentAmount
+                }
+                if (!scanned.patientResponsibilityAmount.isNullOrBlank()) {
+                    patientResponsibilityAmount = scanned.patientResponsibilityAmount
+                }
+                if (notes.isBlank()) {
+                    notes = "Scanned from picture"
+                }
+            }.onFailure {
+                scanError = "Could not scan image. You can still enter manually."
+            }
+            scanInProgress = false
+        }
+    }
 
     fun applySample(sample: BillSample) {
         providerSearch = sample.providerName
@@ -381,6 +569,15 @@ private fun AddBillScreen(
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Text("Add Bill", style = MaterialTheme.typography.headlineMedium) }
+        item {
+            Button(enabled = !loading && !scanInProgress, onClick = { imagePicker.launch("image/*") }) {
+                Text(if (scanInProgress) "Scanning..." else "Scan from Picture")
+            }
+        }
+        item { Text("You can scan a bill/EOB photo, then adjust any field manually.") }
+        if (!scanError.isNullOrBlank()) {
+            item { Text(scanError.orEmpty(), color = MaterialTheme.colorScheme.error) }
+        }
         item {
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
