@@ -56,7 +56,11 @@ class AuthViewModel(private val authManager: AuthManager) : ViewModel() {
                         }
                     }
                 }
-                _state.value = AuthState(isAuthenticated = false, loading = false, error = message)
+                _state.value = AuthState(
+                    isAuthenticated = false,
+                    loading = false,
+                    error = mapAuthError(message)
+                )
             }
         }
     }
@@ -71,9 +75,17 @@ class AuthViewModel(private val authManager: AuthManager) : ViewModel() {
                 SessionStore.setToken(result.accessToken)
                 _state.value = AuthState(isAuthenticated = true, loading = false)
             }.onFailure {
-                _state.value = AuthState(isAuthenticated = false, loading = false, error = it.message)
+                _state.value = AuthState(isAuthenticated = false, loading = false, error = mapAuthError(it.message ?: "Authentication failed"))
             }
         }
+    }
+
+    private fun mapAuthError(message: String): String {
+        if (message.contains("AADSTS50020", ignoreCase = true)) {
+            return "This tenant only allows organization accounts. Use your tenant UPN (for example, kellywolff@wolffentp.net), then tap Use different account and sign in again."
+        }
+
+        return message
     }
 
     fun signOut() {
