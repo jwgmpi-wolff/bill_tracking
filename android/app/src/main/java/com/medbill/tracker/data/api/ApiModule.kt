@@ -3,6 +3,7 @@ package com.medbill.tracker.data.api
 import android.os.Build
 import com.medbill.tracker.BuildConfig
 import com.medbill.tracker.auth.SessionStore
+import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -42,6 +43,10 @@ object ApiModule {
         }
 
         val client = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(120, TimeUnit.SECONDS)
+            .callTimeout(180, TimeUnit.SECONDS)
             .addInterceptor(authInterceptor)
             .addInterceptor(logging)
             .build()

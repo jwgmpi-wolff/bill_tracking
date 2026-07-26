@@ -11,6 +11,7 @@ import com.medbill.tracker.data.model.DocumentRecord
 import com.medbill.tracker.data.model.Provider
 import com.medbill.tracker.data.repository.BillsRepository
 import java.math.BigDecimal
+import java.net.SocketTimeoutException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -198,6 +199,10 @@ class BillsViewModel : ViewModel() {
     }
 
     private fun mapDocumentUploadError(throwable: Throwable): String {
+        if (throwable is SocketTimeoutException) {
+            return "Upload timed out. Try a smaller file or retry on a stronger network connection."
+        }
+
         if (throwable is HttpException) {
             return when (throwable.code()) {
                 400 -> "Invalid file. Use PDF, PNG, or JPEG up to 10 MB."
