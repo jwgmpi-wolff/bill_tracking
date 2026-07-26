@@ -20,11 +20,31 @@ builder.Services.AddScoped<IPaymentGateway, PaymentGatewayStub>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IUserContextService, UserContextService>();
 
+var configuredAudience = builder.Configuration["Jwt:Audience"];
+var validAudiences = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+if (!string.IsNullOrWhiteSpace(configuredAudience))
+{
+    validAudiences.Add(configuredAudience);
+
+    // Entra can emit aud as either App ID URI (api://...) or the app GUID.
+    var audienceWithoutScheme = configuredAudience.StartsWith("api://", StringComparison.OrdinalIgnoreCase)
+        ? configuredAudience.Substring("api://".Length)
+        : configuredAudience;
+
+    var audienceAppId = audienceWithoutScheme.Split('/')[0];
+    if (Guid.TryParse(audienceAppId, out _))
+    {
+        validAudiences.Add(audienceAppId);
+        validAudiences.Add($"api://{audienceAppId}");
+    }
+}
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.Authority = builder.Configuration["Jwt:Authority"];
-        options.Audience = builder.Configuration["Jwt:Audience"];
+        options.Audience = configuredAudience;
         options.RequireHttpsMetadata = true;
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -32,7 +52,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             RoleClaimType = "roles",
             ValidateIssuer = true,
             ValidateAudience = true,
-            ValidateLifetime = true
+            ValidateLifetime = true,
+            ValidAudiences = validAudiences
         };
     });
 
