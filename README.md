@@ -59,7 +59,7 @@ az account set --subscription 9ea136a4-ccfd-45c2-a8e5-01a38c0563d3
   -SubscriptionId 9ea136a4-ccfd-45c2-a8e5-01a38c0563d3 \
   -ResourceGroup rg-medbill-tracker \
   -Location eastus \
-  -ApiAudience api://<api-app-registration-client-id>
+  -ApiAudience api://6255300e-e5ca-4bd7-8520-a5d236304c88
 ```
 
 What this script does:

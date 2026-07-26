@@ -91,7 +91,7 @@ Write-Host "Deploying backend to App Service $appServiceName..." -ForegroundColo
 az webapp deploy --resource-group $ResourceGroup --name $appServiceName --src-path $zipPath --type zip --output none
 
 $jwtAuthority = if ([string]::IsNullOrWhiteSpace($TenantId)) { 'https://login.microsoftonline.com/common/v2.0' } else { "https://login.microsoftonline.com/$TenantId/v2.0" }
-if ([string]::IsNullOrWhiteSpace($ApiAudience)) { $ApiAudience = 'api://replace-with-api-app-registration-client-id' }
+if ([string]::IsNullOrWhiteSpace($ApiAudience)) { $ApiAudience = 'api://6255300e-e5ca-4bd7-8520-a5d236304c88' }
 
 $appSettings = @(
     "Jwt__Authority=$jwtAuthority",

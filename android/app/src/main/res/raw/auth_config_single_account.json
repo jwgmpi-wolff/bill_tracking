@@ -1,5 +1,5 @@
 {
-  "client_id": "1243ddc2-b053-4b40-9a27-10da260b2b74",
+  "client_id": "d5edc6d7-a111-4f8d-81bd-ea97cfe600c4",
   "authorization_user_agent": "DEFAULT",
   "redirect_uri": "msauth://com.medbill.tracker/auth",
   "account_mode": "SINGLE",
@@ -9,7 +9,7 @@
       "type": "AAD",
       "audience": {
         "type": "AzureADMyOrg",
-        "tenant_id": "e594a530-1ec9-4192-a8d4-a9111f8cffa7"
+        "tenant_id": "7fcb095b-344f-4c1e-8e12-bc781eb03e72"
       }
     }
   ]

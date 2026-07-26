@@ -32,9 +32,9 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BASE_URL", "\"$apiBaseUrl\"")
-        buildConfigField("String", "ENTRA_CLIENT_ID", "\"1243ddc2-b053-4b40-9a27-10da260b2b74\"")
-        buildConfigField("String", "ENTRA_TENANT", "\"e594a530-1ec9-4192-a8d4-a9111f8cffa7\"")
-        buildConfigField("String", "ENTRA_API_SCOPE", "\"api://ae0d42c4-46bf-4240-a0a9-2030a7b900f1/user_impersonation\"")
+        buildConfigField("String", "ENTRA_CLIENT_ID", "\"d5edc6d7-a111-4f8d-81bd-ea97cfe600c4\"")
+        buildConfigField("String", "ENTRA_TENANT", "\"7fcb095b-344f-4c1e-8e12-bc781eb03e72\"")
+        buildConfigField("String", "ENTRA_API_SCOPE", "\"api://6255300e-e5ca-4bd7-8520-a5d236304c88/user_impersonation\"")
     }
 
     signingConfigs {
