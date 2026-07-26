@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -106,6 +108,36 @@ private val footAndAnkleSample = BillSample(
     discountAdjustmentAmount = "125.70",
     patientResponsibilityAmount = "118.35",
     notes = "Foot & Ankle statement sample from image"
+)
+
+private val premeraSample = BillSample(
+    providerName = "Premera Blue Cross (EOB)",
+    providerId = "6c53ed6d-1a4a-4919-9e02-7d6a9df276de",
+    invoiceNumber = "877358697300",
+    accountNumber = "88776",
+    serviceDate = "2026-06-08",
+    billDate = "2026-06-13",
+    dueDate = "2026-07-13",
+    totalBilledAmount = "490.25",
+    insurancePaidAmount = "224.39",
+    discountAdjustmentAmount = "240.93",
+    patientResponsibilityAmount = "24.93",
+    notes = "Premera EOB sample from image"
+)
+
+private val deltaDentalSample = BillSample(
+    providerName = "Delta Dental",
+    providerId = "f43225b0-4f66-4e14-a1f9-5f5c9bd2d87f",
+    invoiceNumber = "20261390518300",
+    accountNumber = "96514569",
+    serviceDate = "2026-05-15",
+    billDate = "2026-05-21",
+    dueDate = "2026-06-20",
+    totalBilledAmount = "147.00",
+    insurancePaidAmount = "147.00",
+    discountAdjustmentAmount = "0.00",
+    patientResponsibilityAmount = "0.00",
+    notes = "Delta Dental EOB sample from image"
 )
 
 @Composable
@@ -350,12 +382,21 @@ private fun AddBillScreen(
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Text("Add Bill", style = MaterialTheme.typography.headlineMedium) }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Button(enabled = !loading, onClick = { applySample(norcoSample) }) {
                     Text("Use Norco Sample")
                 }
                 Button(enabled = !loading, onClick = { applySample(footAndAnkleSample) }) {
                     Text("Use Foot & Ankle")
+                }
+                Button(enabled = !loading, onClick = { applySample(premeraSample) }) {
+                    Text("Use Premera")
+                }
+                Button(enabled = !loading, onClick = { applySample(deltaDentalSample) }) {
+                    Text("Use Delta Dental")
                 }
                 Button(enabled = !loading, onClick = { applySample(contosoSample) }) {
                     Text("Use Contoso Sample")
