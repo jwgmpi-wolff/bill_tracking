@@ -11,6 +11,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $true
 $repoRoot = $PSScriptRoot
 Set-Location $repoRoot
 
@@ -19,8 +20,10 @@ if ([string]::IsNullOrWhiteSpace($SubscriptionId)) {
 }
 
 if (-not [string]::IsNullOrWhiteSpace($TenantId)) {
-    Write-Host "Setting Azure cloud context to tenant $TenantId..." -ForegroundColor Cyan
-    az login --tenant $TenantId --allow-no-subscriptions --output none
+    $currentTenant = az account show --query tenantId -o tsv
+    if ($currentTenant -ne $TenantId) {
+        throw "Current Azure context tenant '$currentTenant' does not match requested tenant '$TenantId'. Run: az login --tenant $TenantId"
+    }
 }
 
 Write-Host "Setting subscription context to $SubscriptionId..." -ForegroundColor Cyan

@@ -46,6 +46,13 @@ http://10.0.2.2:<backend-port>/
 
 ### Fast path (target tenant + subscription)
 
+Authenticate first (required when your tenant enforces MFA/Conditional Access):
+
+```powershell
+az login --tenant 7fcb095b-344f-4c1e-8e12-bc781eb03e72
+az account set --subscription 9ea136a4-ccfd-45c2-a8e5-01a38c0563d3
+```
+
 ```powershell
 ./deploy-azure.ps1 \
   -TenantId 7fcb095b-344f-4c1e-8e12-bc781eb03e72 \
