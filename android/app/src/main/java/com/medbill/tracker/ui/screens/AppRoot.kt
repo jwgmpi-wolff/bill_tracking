@@ -45,6 +45,7 @@ import com.medbill.tracker.ui.navigation.Route
 import com.medbill.tracker.vm.AuthViewModel
 import com.medbill.tracker.vm.BillsViewModel
 import java.math.BigDecimal
+import java.util.UUID
 
 @Composable
 fun AppRoot(billsViewModel: BillsViewModel) {
@@ -256,6 +257,7 @@ private fun AddBillScreen(
     var discountAdjustmentAmount by remember { mutableStateOf("0.00") }
     var patientResponsibilityAmount by remember { mutableStateOf("0.00") }
     var notes by remember { mutableStateOf("") }
+    var localError by remember { mutableStateOf<String?>(null) }
 
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Text("Add Bill", style = MaterialTheme.typography.headlineMedium) }
@@ -273,20 +275,46 @@ private fun AddBillScreen(
         if (!error.isNullOrBlank()) {
             item { Text(error, color = MaterialTheme.colorScheme.error) }
         }
+        if (!localError.isNullOrBlank()) {
+            item { Text(localError.orEmpty(), color = MaterialTheme.colorScheme.error) }
+        }
         item {
             Button(enabled = !loading, onClick = {
+                localError = null
+
+                val parsedProvider = runCatching { UUID.fromString(providerId) }.getOrNull()
+                if (parsedProvider == null) {
+                    localError = "Provider ID must be a valid GUID."
+                    return@Button
+                }
+
+                if (invoiceNumber.isBlank()) {
+                    localError = "Invoice Number is required."
+                    return@Button
+                }
+
+                val total = totalBilledAmount.toBigDecimalOrNull()
+                val insurance = insurancePaidAmount.toBigDecimalOrNull()
+                val adjustments = discountAdjustmentAmount.toBigDecimalOrNull()
+                val responsibility = patientResponsibilityAmount.toBigDecimalOrNull()
+
+                if (total == null || insurance == null || adjustments == null || responsibility == null) {
+                    localError = "Amounts must be valid decimals like 128.00 (use only one decimal point)."
+                    return@Button
+                }
+
                 onSubmit(
                     BillCreateRequest(
-                        providerId = providerId,
+                        providerId = parsedProvider.toString(),
                         invoiceNumber = invoiceNumber,
                         accountNumber = accountNumber.ifBlank { null },
                         serviceDate = serviceDate,
                         billDate = billDate,
                         dueDate = dueDate,
-                        totalBilledAmount = totalBilledAmount.toBigDecimalOrNull() ?: BigDecimal.ZERO,
-                        insurancePaidAmount = insurancePaidAmount.toBigDecimalOrNull() ?: BigDecimal.ZERO,
-                        discountAdjustmentAmount = discountAdjustmentAmount.toBigDecimalOrNull() ?: BigDecimal.ZERO,
-                        patientResponsibilityAmount = patientResponsibilityAmount.toBigDecimalOrNull() ?: BigDecimal.ZERO,
+                        totalBilledAmount = total,
+                        insurancePaidAmount = insurance,
+                        discountAdjustmentAmount = adjustments,
+                        patientResponsibilityAmount = responsibility,
                         notes = notes.ifBlank { null }
                     )
                 )

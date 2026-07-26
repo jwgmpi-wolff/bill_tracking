@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 data class BillsState(
     val loading: Boolean = false,
@@ -67,11 +68,34 @@ class BillsViewModel : ViewModel() {
                 val bills = repository.getBills()
                 _state.value = _state.value.copy(loading = false, dashboard = dashboard, bills = bills)
                 onResult(true)
-            }.onFailure {
-                _state.value = _state.value.copy(loading = false, error = "Unable to add bill")
+            }.onFailure { throwable ->
+                _state.value = _state.value.copy(loading = false, error = mapAddBillError(throwable))
                 onResult(false)
             }
         }
+    }
+
+    private fun mapAddBillError(throwable: Throwable): String {
+        if (throwable is HttpException) {
+            val code = throwable.code()
+            val raw = runCatching { throwable.response()?.errorBody()?.string() }.getOrNull().orEmpty()
+
+            if (code == 400) {
+                return "Invalid bill input. Check Provider ID is a valid GUID, invoice is filled, and dates/amounts are valid."
+            }
+
+            if (code == 401 || code == 403) {
+                return "Session expired or unauthorized. Sign out and sign in again."
+            }
+
+            if (raw.isNotBlank()) {
+                return "Unable to add bill (HTTP $code): $raw"
+            }
+
+            return "Unable to add bill (HTTP $code)."
+        }
+
+        return throwable.message ?: "Unable to add bill"
     }
 
     fun createPaymentSession(amount: BigDecimal) {
