@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -106,9 +107,15 @@ fun AppRoot(billsViewModel: BillsViewModel) {
             }
 
             composable(Route.AddBill.path) {
-                AddBillScreen { request ->
-                    billsViewModel.addBill(request)
-                    navController.navigate(Route.Bills.path)
+                AddBillScreen(
+                    loading = billsState.loading,
+                    error = billsState.error
+                ) { request ->
+                    billsViewModel.addBill(request) { saved ->
+                        if (saved) {
+                            navController.navigate(Route.Bills.path)
+                        }
+                    }
                 }
             }
 
@@ -233,7 +240,11 @@ private fun BillsScreen(bills: List<Bill>, onSelect: (Bill) -> Unit) {
 }
 
 @Composable
-private fun AddBillScreen(onSubmit: (BillCreateRequest) -> Unit) {
+private fun AddBillScreen(
+    loading: Boolean,
+    error: String?,
+    onSubmit: (BillCreateRequest) -> Unit
+) {
     var providerId by remember { mutableStateOf("") }
     var invoiceNumber by remember { mutableStateOf("") }
     var accountNumber by remember { mutableStateOf("") }
@@ -259,8 +270,11 @@ private fun AddBillScreen(onSubmit: (BillCreateRequest) -> Unit) {
         item { OutlinedTextField(value = discountAdjustmentAmount, onValueChange = { discountAdjustmentAmount = it }, label = { Text("Adjustments") }, modifier = Modifier.fillMaxWidth()) }
         item { OutlinedTextField(value = patientResponsibilityAmount, onValueChange = { patientResponsibilityAmount = it }, label = { Text("Patient Responsibility") }, modifier = Modifier.fillMaxWidth()) }
         item { OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth()) }
+        if (!error.isNullOrBlank()) {
+            item { Text(error, color = MaterialTheme.colorScheme.error) }
+        }
         item {
-            Button(onClick = {
+            Button(enabled = !loading, onClick = {
                 onSubmit(
                     BillCreateRequest(
                         providerId = providerId,
@@ -277,7 +291,14 @@ private fun AddBillScreen(onSubmit: (BillCreateRequest) -> Unit) {
                     )
                 )
             }) {
-                Text("Save Bill")
+                Text(if (loading) "Saving..." else "Save Bill")
+            }
+        }
+        if (loading) {
+            item {
+                TextButton(enabled = false, onClick = {}) {
+                    Text("Please wait while bill and dashboard refresh")
+                }
             }
         }
     }

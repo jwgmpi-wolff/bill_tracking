@@ -58,14 +58,18 @@ class BillsViewModel : ViewModel() {
         }
     }
 
-    fun addBill(request: BillCreateRequest) {
+    fun addBill(request: BillCreateRequest, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
-            _state.value = _state.value.copy(loading = true)
+            _state.value = _state.value.copy(loading = true, error = null)
             runCatching {
                 repository.createBill(request)
-                refresh()
+                val dashboard = repository.getDashboard()
+                val bills = repository.getBills()
+                _state.value = _state.value.copy(loading = false, dashboard = dashboard, bills = bills)
+                onResult(true)
             }.onFailure {
                 _state.value = _state.value.copy(loading = false, error = "Unable to add bill")
+                onResult(false)
             }
         }
     }
