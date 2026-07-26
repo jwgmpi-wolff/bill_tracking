@@ -89,6 +89,9 @@ What this script does:
 
 - APK: `android/app/build/outputs/apk/release/app-release.apk`
 - AAB: `android/app/build/outputs/bundle/release/app-release.aab`
+- Downloadable release APK: `releases/MedBillTracker-v1.0.1.apk`
+- Release notes: `releases/README.md`
+- Download metadata page: `web/download/index.html`
 
 ## Regenerate Prompt (GitHub Copilot)
 
