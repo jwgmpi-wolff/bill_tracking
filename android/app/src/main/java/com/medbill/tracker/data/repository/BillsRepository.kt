@@ -1,0 +1,36 @@
+package com.medbill.tracker.data.repository
+
+import com.medbill.tracker.data.api.ApiModule
+import com.medbill.tracker.data.model.Bill
+import com.medbill.tracker.data.model.BillCreateRequest
+import com.medbill.tracker.data.model.BillUpdateRequest
+import com.medbill.tracker.data.model.Dashboard
+import com.medbill.tracker.data.model.DocumentRecord
+import com.medbill.tracker.data.model.PaymentSessionRequest
+import com.medbill.tracker.data.model.PaymentSessionResponse
+import com.medbill.tracker.data.model.AuthMe
+import java.math.BigDecimal
+
+class BillsRepository {
+    private val api = ApiModule.createApi()
+
+    suspend fun me(): AuthMe = api.me()
+
+    suspend fun getBills(): List<Bill> = api.getBills()
+
+    suspend fun getBill(id: String): Bill = api.getBill(id)
+
+    suspend fun createBill(request: BillCreateRequest): Bill = api.createBill(request)
+
+    suspend fun updateBill(id: String, request: BillUpdateRequest): Bill = api.updateBill(id, request)
+
+    suspend fun deleteBill(id: String) = api.deleteBill(id)
+
+    suspend fun getDashboard(): Dashboard = api.getDashboard()
+
+    suspend fun getDocuments(billId: String): List<DocumentRecord> = api.getDocuments(billId)
+
+    suspend fun createPaymentSession(billId: String, amount: BigDecimal): PaymentSessionResponse {
+        return api.createPaymentSession(billId, PaymentSessionRequest(amount, "USD"))
+    }
+}
