@@ -56,6 +56,10 @@ class BillsRepository {
         return api.uploadDocument(billId, filePart, typePart)
     }
 
+    suspend fun deleteDocument(billId: String, documentId: String) {
+        api.deleteDocument(billId, documentId)
+    }
+
     suspend fun createPaymentSession(billId: String, amount: BigDecimal): PaymentSessionResponse {
         return api.createPaymentSession(billId, PaymentSessionRequest(amount, "USD"))
     }

@@ -130,4 +130,36 @@ public class DocumentsController : ControllerBase
         var uri = await _documents.GetDownloadUriAsync(doc.BlobUri, TimeSpan.FromMinutes(10), cancellationToken);
         return Ok(new { url = uri.ToString(), expiresInSeconds = 600 });
     }
+
+    [HttpDelete("{documentId:guid}")]
+    public async Task<IActionResult> Delete(Guid billId, Guid documentId, CancellationToken cancellationToken)
+    {
+        var user = await _userContext.GetOrCreateUserAsync(User, cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        var userId = user.UserId;
+        var doc = await _db.Documents.FirstOrDefaultAsync(x => x.DocumentId == documentId && x.BillId == billId && x.UserId == userId, cancellationToken);
+        if (doc is null)
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            await _documents.DeleteIfExistsAsync(doc.BlobUri, cancellationToken);
+        }
+        catch
+        {
+            // If blob cleanup fails, still remove metadata row to unblock user actions.
+        }
+
+        _db.Documents.Remove(doc);
+        await _db.SaveChangesAsync(cancellationToken);
+        await _audit.WriteAsync(userId, "Delete", "Document", doc.DocumentId.ToString(), "Success", HttpContext, cancellationToken);
+
+        return NoContent();
+    }
 }

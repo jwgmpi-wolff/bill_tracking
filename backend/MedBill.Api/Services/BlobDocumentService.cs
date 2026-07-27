@@ -31,4 +31,10 @@ public class BlobDocumentService : IDocumentService
         var uri = blobClient.GenerateSasUri(BlobSasPermissions.Read, DateTimeOffset.UtcNow.Add(expiresIn));
         return Task.FromResult(uri);
     }
+
+    public async Task DeleteIfExistsAsync(string blobName, CancellationToken cancellationToken)
+    {
+        var blobClient = _container.GetBlobClient(blobName);
+        await blobClient.DeleteIfExistsAsync(cancellationToken: cancellationToken);
+    }
 }

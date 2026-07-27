@@ -128,6 +128,21 @@ class BillsViewModel : ViewModel() {
         }
     }
 
+    fun deleteDocument(billId: String, documentId: String, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(documentUploadLoading = true, error = null)
+            runCatching {
+                repository.deleteDocument(billId, documentId)
+                val docs = repository.getDocuments(billId)
+                _state.value = _state.value.copy(documents = docs, documentUploadLoading = false)
+                onResult(true)
+            }.onFailure { throwable ->
+                _state.value = _state.value.copy(documentUploadLoading = false, error = mapDocumentDeleteError(throwable))
+                onResult(false)
+            }
+        }
+    }
+
     fun deleteBill(billId: String, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             _state.value = _state.value.copy(loading = true, error = null)
@@ -213,6 +228,18 @@ class BillsViewModel : ViewModel() {
         }
 
         return throwable.message ?: "Unable to upload document"
+    }
+
+    private fun mapDocumentDeleteError(throwable: Throwable): String {
+        if (throwable is HttpException) {
+            return when (throwable.code()) {
+                401, 403 -> "Unauthorized. Sign out and sign in again."
+                404 -> "Document not found. It may already be deleted."
+                else -> "Unable to delete document (HTTP ${throwable.code()})."
+            }
+        }
+
+        return throwable.message ?: "Unable to delete document"
     }
 
     fun createPaymentSession(amount: BigDecimal) {

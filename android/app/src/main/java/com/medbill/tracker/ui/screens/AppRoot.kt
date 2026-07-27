@@ -444,6 +444,9 @@ fun AppRoot(billsViewModel: BillsViewModel) {
                                 documentType = type
                             )
                         }
+                    },
+                    onDelete = { billId, documentId ->
+                        billsViewModel.deleteDocument(billId, documentId)
                     }
                 )
             }
@@ -928,7 +931,8 @@ private fun DocumentsScreen(
     documents: List<DocumentRecord>,
     uploading: Boolean,
     error: String?,
-    onUpload: (billId: String, uri: Uri, documentType: String) -> Unit
+    onUpload: (billId: String, uri: Uri, documentType: String) -> Unit,
+    onDelete: (billId: String, documentId: String) -> Unit
 ) {
     val scanPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null && !billId.isNullOrBlank()) {
@@ -968,6 +972,13 @@ private fun DocumentsScreen(
                             Text("Type ${doc.documentType ?: "Document"}")
                             Text(doc.contentType)
                             Text("Uploaded ${doc.uploadedAt}")
+                            Button(
+                                onClick = { onDelete(billId, doc.documentId) },
+                                enabled = !uploading,
+                                modifier = Modifier.padding(top = 8.dp)
+                            ) {
+                                Text(if (uploading) "Working..." else "Delete")
+                            }
                         }
                     }
                 }

@@ -61,6 +61,12 @@ interface ApiService {
         @Part("documentType") documentType: RequestBody
     ): DocumentRecord
 
+    @DELETE("api/bills/{billId}/documents/{documentId}")
+    suspend fun deleteDocument(
+        @Path("billId") billId: String,
+        @Path("documentId") documentId: String
+    )
+
     @POST("api/bills/{billId}/payments/session")
     suspend fun createPaymentSession(
         @Path("billId") billId: String,
