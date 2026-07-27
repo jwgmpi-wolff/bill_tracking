@@ -12,6 +12,11 @@ enum class BillStatus {
     Overdue
 }
 
+enum class PaymentMethod {
+    CreditCard,
+    Zelle
+}
+
 data class Bill(
     val billId: String,
     val providerId: String,
@@ -89,7 +94,8 @@ data class Dashboard(
 
 data class PaymentSessionRequest(
     val amount: BigDecimal,
-    val currency: String
+    val currency: String,
+    val method: String
 )
 
 data class PaymentSessionResponse(

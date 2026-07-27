@@ -19,9 +19,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,6 +50,7 @@ import com.medbill.tracker.data.model.Bill
 import com.medbill.tracker.data.model.BillCreateRequest
 import com.medbill.tracker.data.model.BillEntryUpdateRequest
 import com.medbill.tracker.data.model.DocumentRecord
+import com.medbill.tracker.data.model.PaymentMethod
 import com.medbill.tracker.data.model.Provider
 import com.medbill.tracker.ui.components.MedBillBottomNav
 import com.medbill.tracker.ui.navigation.Route
@@ -293,6 +296,20 @@ private fun resolveContentType(context: android.content.Context, uri: Uri): Stri
     return context.contentResolver.getType(uri) ?: "application/octet-stream"
 }
 
+private const val PREFS_NAME = "medbill_prefs"
+private const val KEY_DEFAULT_PAYMENT_METHOD = "default_payment_method"
+
+private fun readSavedPaymentMethod(context: android.content.Context): PaymentMethod {
+    val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+    val raw = prefs.getString(KEY_DEFAULT_PAYMENT_METHOD, PaymentMethod.CreditCard.name) ?: PaymentMethod.CreditCard.name
+    return runCatching { PaymentMethod.valueOf(raw) }.getOrDefault(PaymentMethod.CreditCard)
+}
+
+private fun saveDefaultPaymentMethod(context: android.content.Context, method: PaymentMethod) {
+    val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+    prefs.edit().putString(KEY_DEFAULT_PAYMENT_METHOD, method.name).apply()
+}
+
 @Composable
 fun AppRoot(billsViewModel: BillsViewModel) {
     val context = LocalContext.current
@@ -417,7 +434,7 @@ fun AppRoot(billsViewModel: BillsViewModel) {
                 PaymentScreen(
                     bill = billsState.selectedBill,
                     redirectUrl = billsState.paymentRedirectUrl,
-                    onPay = { amount -> billsViewModel.createPaymentSession(amount) },
+                    onPay = { amount, method -> billsViewModel.createPaymentSession(amount, method) },
                     onOpenPayment = { url ->
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                         billsViewModel.clearPaymentRedirect()
@@ -916,7 +933,11 @@ private fun BillDetailScreen(
 }
 
 @Composable
-private fun PaymentScreen(bill: Bill?, redirectUrl: String?, onPay: (BigDecimal) -> Unit, onOpenPayment: (String) -> Unit) {
+private fun PaymentScreen(bill: Bill?, redirectUrl: String?, onPay: (BigDecimal, PaymentMethod) -> Unit, onOpenPayment: (String) -> Unit) {
+    val context = LocalContext.current
+    var selectedMethod by remember { mutableStateOf(readSavedPaymentMethod(context)) }
+    var saveAsDefault by remember { mutableStateOf(false) }
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Payment", style = MaterialTheme.typography.headlineMedium)
         if (bill == null) {
@@ -925,11 +946,39 @@ private fun PaymentScreen(bill: Bill?, redirectUrl: String?, onPay: (BigDecimal)
             val due = (bill.patientResponsibilityAmount - bill.amountPaid).coerceAtLeast(BigDecimal.ZERO)
             Text("Invoice ${bill.invoiceNumber}")
             Text("Amount Due $due")
-            Button(onClick = { onPay(due) }) { Text("Start Hosted Checkout") }
+            Text("Payment method")
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(
+                    selected = selectedMethod == PaymentMethod.CreditCard,
+                    onClick = { selectedMethod = PaymentMethod.CreditCard }
+                )
+                Text("Credit Card")
+                RadioButton(
+                    selected = selectedMethod == PaymentMethod.Zelle,
+                    onClick = { selectedMethod = PaymentMethod.Zelle }
+                )
+                Text("Zelle")
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = saveAsDefault, onCheckedChange = { saveAsDefault = it })
+                Text("Save this as my default payment method")
+            }
+
+            Button(onClick = {
+                if (saveAsDefault) {
+                    saveDefaultPaymentMethod(context, selectedMethod)
+                }
+                onPay(due, selectedMethod)
+            }) {
+                Text(if (selectedMethod == PaymentMethod.Zelle) "Pay with Zelle" else "Pay with Credit Card")
+            }
 
             if (!redirectUrl.isNullOrBlank()) {
                 Text("Payment session ready")
-                Button(onClick = { onOpenPayment(redirectUrl) }) { Text("Open Secure Payment Page") }
+                Button(onClick = { onOpenPayment(redirectUrl) }) {
+                    Text(if (selectedMethod == PaymentMethod.Zelle) "Open Zelle" else "Open Secure Payment Page")
+                }
             }
         }
     }

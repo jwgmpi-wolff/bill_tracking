@@ -35,7 +35,7 @@ public record BillUpdateRequest(
     decimal AmountPaid,
     string? Notes);
 
-public record PaymentSessionRequest(decimal Amount, string Currency);
+public record PaymentSessionRequest(decimal Amount, string Currency, string Method);
 
 public record PaymentSessionResponse(string Provider, string SessionId, string RedirectUrl);
 

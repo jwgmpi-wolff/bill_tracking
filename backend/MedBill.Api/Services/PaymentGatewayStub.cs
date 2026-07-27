@@ -5,10 +5,14 @@ namespace MedBill.Api.Services;
 
 public class PaymentGatewayStub : IPaymentGateway
 {
-    public Task<(string sessionId, string redirectUrl)> CreatePaymentSessionAsync(Guid billId, decimal amount, string currency, CancellationToken cancellationToken)
+    public Task<(string sessionId, string redirectUrl)> CreatePaymentSessionAsync(Guid billId, decimal amount, string currency, string method, CancellationToken cancellationToken)
     {
-        var sessionId = $"sess_{Guid.NewGuid():N}";
-        var redirectUrl = $"https://payments.example.com/checkout/{sessionId}?bill={billId}";
+        var normalized = string.Equals(method, "Zelle", StringComparison.OrdinalIgnoreCase) ? "Zelle" : "CreditCard";
+        var prefix = normalized == "Zelle" ? "zelle" : "cc";
+        var sessionId = $"{prefix}_{Guid.NewGuid():N}";
+        var redirectUrl = normalized == "Zelle"
+            ? $"https://www.zellepay.com/?bill={billId}&amount={amount:0.00}&currency={currency}"
+            : $"https://payments.example.com/checkout/{sessionId}?bill={billId}";
         return Task.FromResult((sessionId, redirectUrl));
     }
 

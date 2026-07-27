@@ -45,13 +45,22 @@ public class PaymentsController : ControllerBase
             return NotFound();
         }
 
-        var (sessionId, redirectUrl) = await _payments.CreatePaymentSessionAsync(billId, request.Amount, request.Currency, cancellationToken);
+        var methodRaw = request.Method?.Trim();
+        var isZelle = string.Equals(methodRaw, "Zelle", StringComparison.OrdinalIgnoreCase);
+        var isCreditCard = string.Equals(methodRaw, "CreditCard", StringComparison.OrdinalIgnoreCase);
+        if (!isZelle && !isCreditCard)
+        {
+            return BadRequest("Unsupported payment method.");
+        }
+        var method = isZelle ? "Zelle" : "CreditCard";
+
+        var (sessionId, redirectUrl) = await _payments.CreatePaymentSessionAsync(billId, request.Amount, request.Currency, method, cancellationToken);
         _db.Payments.Add(new PaymentRecord
         {
             PaymentId = Guid.NewGuid(),
             BillId = billId,
             UserId = userId,
-            PaymentProvider = _configuration["Payments:Provider"] ?? "Stripe",
+            PaymentProvider = method,
             PaymentSessionId = sessionId,
             Amount = request.Amount,
             Currency = request.Currency,
@@ -62,7 +71,7 @@ public class PaymentsController : ControllerBase
         await _db.SaveChangesAsync(cancellationToken);
         await _audit.WriteAsync(userId, "Create", "PaymentSession", sessionId, "Success", HttpContext, cancellationToken);
 
-        return Ok(new PaymentSessionResponse(_configuration["Payments:Provider"] ?? "Stripe", sessionId, redirectUrl));
+        return Ok(new PaymentSessionResponse(method, sessionId, redirectUrl));
     }
 
     [HttpPost("payments/webhook")]

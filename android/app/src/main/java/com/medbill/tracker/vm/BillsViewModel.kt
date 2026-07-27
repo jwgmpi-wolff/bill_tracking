@@ -8,6 +8,7 @@ import com.medbill.tracker.data.model.BillCreateRequest
 import com.medbill.tracker.data.model.BillEntryUpdateRequest
 import com.medbill.tracker.data.model.Dashboard
 import com.medbill.tracker.data.model.DocumentRecord
+import com.medbill.tracker.data.model.PaymentMethod
 import com.medbill.tracker.data.model.Provider
 import com.medbill.tracker.data.repository.BillsRepository
 import java.math.BigDecimal
@@ -242,11 +243,11 @@ class BillsViewModel : ViewModel() {
         return throwable.message ?: "Unable to delete document"
     }
 
-    fun createPaymentSession(amount: BigDecimal) {
+    fun createPaymentSession(amount: BigDecimal, method: PaymentMethod) {
         val bill = _state.value.selectedBill ?: return
         viewModelScope.launch {
             runCatching {
-                val result = repository.createPaymentSession(bill.billId, amount)
+                val result = repository.createPaymentSession(bill.billId, amount, method)
                 _state.value = _state.value.copy(paymentRedirectUrl = result.redirectUrl)
             }.onFailure {
                 _state.value = _state.value.copy(error = "Unable to create payment session")

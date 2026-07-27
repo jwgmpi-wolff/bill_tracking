@@ -9,6 +9,7 @@ import com.medbill.tracker.data.model.Dashboard
 import com.medbill.tracker.data.model.DocumentRecord
 import com.medbill.tracker.data.model.PaymentSessionRequest
 import com.medbill.tracker.data.model.PaymentSessionResponse
+import com.medbill.tracker.data.model.PaymentMethod
 import com.medbill.tracker.data.model.AuthMe
 import com.medbill.tracker.data.model.Provider
 import java.math.BigDecimal
@@ -60,7 +61,7 @@ class BillsRepository {
         api.deleteDocument(billId, documentId)
     }
 
-    suspend fun createPaymentSession(billId: String, amount: BigDecimal): PaymentSessionResponse {
-        return api.createPaymentSession(billId, PaymentSessionRequest(amount, "USD"))
+    suspend fun createPaymentSession(billId: String, amount: BigDecimal, method: PaymentMethod): PaymentSessionResponse {
+        return api.createPaymentSession(billId, PaymentSessionRequest(amount, "USD", method.name))
     }
 }
