@@ -46,6 +46,7 @@ data class DocumentRecord(
 
 data class BillCreateRequest(
     val providerId: String,
+    val providerName: String?,
     val invoiceNumber: String,
     val accountNumber: String?,
     val serviceDate: String,
@@ -66,6 +67,7 @@ data class BillUpdateRequest(
 
 data class BillEntryUpdateRequest(
     val providerId: String,
+    val providerName: String?,
     val invoiceNumber: String,
     val accountNumber: String?,
     val serviceDate: String,

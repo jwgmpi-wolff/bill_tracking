@@ -769,6 +769,7 @@ private fun AddBillScreen(
                 onSubmit(
                     BillCreateRequest(
                         providerId = parsedProvider.toString(),
+                        providerName = providerSearch.ifBlank { null },
                         invoiceNumber = invoiceNumber,
                         accountNumber = accountNumber.ifBlank { null },
                         serviceDate = serviceDate,
@@ -814,6 +815,7 @@ private fun BillDetailScreen(
     }
 
     var providerId by remember(bill.billId) { mutableStateOf(bill.providerId) }
+    var providerName by remember(bill.billId) { mutableStateOf(bill.providerName.orEmpty()) }
     var invoiceNumber by remember(bill.billId) { mutableStateOf(bill.invoiceNumber) }
     var accountNumber by remember(bill.billId) { mutableStateOf(bill.accountNumber.orEmpty()) }
     var serviceDate by remember(bill.billId) { mutableStateOf(bill.serviceDate) }
@@ -837,6 +839,7 @@ private fun BillDetailScreen(
         item { Text("Amount paid ${bill.amountPaid}") }
 
         item { OutlinedTextField(value = providerId, onValueChange = { providerId = it }, label = { Text("Provider ID") }, modifier = Modifier.fillMaxWidth()) }
+        item { OutlinedTextField(value = providerName, onValueChange = { providerName = it }, label = { Text("Provider Name") }, modifier = Modifier.fillMaxWidth()) }
         item { OutlinedTextField(value = invoiceNumber, onValueChange = { invoiceNumber = it }, label = { Text("Invoice Number") }, modifier = Modifier.fillMaxWidth()) }
         item { OutlinedTextField(value = accountNumber, onValueChange = { accountNumber = it }, label = { Text("Account Number") }, modifier = Modifier.fillMaxWidth()) }
         item { OutlinedTextField(value = serviceDate, onValueChange = { serviceDate = it }, label = { Text("Service Date (YYYY-MM-DD)") }, modifier = Modifier.fillMaxWidth()) }
@@ -882,6 +885,7 @@ private fun BillDetailScreen(
                 bill.billId,
                 BillEntryUpdateRequest(
                     providerId = parsedProvider.toString(),
+                    providerName = providerName.ifBlank { null },
                     invoiceNumber = invoiceNumber,
                     accountNumber = accountNumber.ifBlank { null },
                     serviceDate = serviceDate,

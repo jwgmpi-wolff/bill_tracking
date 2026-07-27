@@ -4,6 +4,7 @@ namespace MedBill.Api.Dtos;
 
 public record BillCreateRequest(
     Guid ProviderId,
+    string? ProviderName,
     string InvoiceNumber,
     string? AccountNumber,
     DateOnly ServiceDate,
@@ -17,6 +18,7 @@ public record BillCreateRequest(
 
 public record BillEntryUpdateRequest(
     Guid ProviderId,
+    string? ProviderName,
     string InvoiceNumber,
     string? AccountNumber,
     DateOnly ServiceDate,

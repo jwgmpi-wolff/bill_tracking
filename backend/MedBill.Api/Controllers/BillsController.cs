@@ -24,6 +24,28 @@ public class BillsController : ControllerBase
         _userContext = userContext;
     }
 
+    private async Task<string?> EnsureProviderForUserAsync(Guid userId, Guid providerId, string? providerName, CancellationToken cancellationToken)
+    {
+        var normalizedName = string.IsNullOrWhiteSpace(providerName) ? null : providerName.Trim();
+        var provider = await _db.Providers.FirstOrDefaultAsync(x => x.ProviderId == providerId && x.UserId == userId, cancellationToken);
+        if (provider is null)
+        {
+            provider = new Provider
+            {
+                ProviderId = providerId,
+                UserId = userId,
+                ProviderName = normalizedName ?? "Unknown Provider"
+            };
+            _db.Providers.Add(provider);
+        }
+        else if (!string.IsNullOrWhiteSpace(normalizedName) && !string.Equals(provider.ProviderName, normalizedName, StringComparison.Ordinal))
+        {
+            provider.ProviderName = normalizedName;
+        }
+
+        return provider.ProviderName;
+    }
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Bill>>> GetBills(CancellationToken cancellationToken)
     {
@@ -87,6 +109,7 @@ public class BillsController : ControllerBase
         }
 
         var userId = user.UserId;
+        var effectiveProviderName = await EnsureProviderForUserAsync(userId, request.ProviderId, request.ProviderName, cancellationToken);
         var bill = new Bill
         {
             BillId = Guid.NewGuid(),
@@ -120,10 +143,7 @@ public class BillsController : ControllerBase
         await _db.SaveChangesAsync(cancellationToken);
         await _audit.WriteAsync(userId, "Create", "Bill", bill.BillId.ToString(), "Success", HttpContext, cancellationToken);
 
-        bill.ProviderName = await _db.Providers
-            .Where(p => p.ProviderId == bill.ProviderId && p.UserId == userId)
-            .Select(p => p.ProviderName)
-            .FirstOrDefaultAsync(cancellationToken);
+        bill.ProviderName = effectiveProviderName;
 
         return CreatedAtAction(nameof(GetBill), new { id = bill.BillId }, bill);
     }
@@ -191,6 +211,8 @@ public class BillsController : ControllerBase
             return NotFound();
         }
 
+        var effectiveProviderName = await EnsureProviderForUserAsync(userId, request.ProviderId, request.ProviderName, cancellationToken);
+
         bill.ProviderId = request.ProviderId;
         bill.InvoiceNumber = request.InvoiceNumber.Trim();
         bill.AccountNumber = request.AccountNumber;
@@ -217,10 +239,7 @@ public class BillsController : ControllerBase
         await _db.SaveChangesAsync(cancellationToken);
         await _audit.WriteAsync(userId, "UpdateEntry", "Bill", bill.BillId.ToString(), "Success", HttpContext, cancellationToken);
 
-        bill.ProviderName = await _db.Providers
-            .Where(p => p.ProviderId == bill.ProviderId && p.UserId == userId)
-            .Select(p => p.ProviderName)
-            .FirstOrDefaultAsync(cancellationToken);
+        bill.ProviderName = effectiveProviderName;
 
         return Ok(bill);
     }
