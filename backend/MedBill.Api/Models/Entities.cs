@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace MedBill.Api.Models;
 
 public enum BillStatus
@@ -47,6 +49,8 @@ public class Bill
     public decimal PatientResponsibilityAmount { get; set; }
     public decimal AmountPaid { get; set; }
     public BillStatus CurrentStatus { get; set; } = BillStatus.New;
+    [NotMapped]
+    public string? ProviderName { get; set; }
     public bool IsOverdue { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;

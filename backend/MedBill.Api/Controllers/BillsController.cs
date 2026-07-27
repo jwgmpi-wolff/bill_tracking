@@ -35,6 +35,21 @@ public class BillsController : ControllerBase
 
         var userId = user.UserId;
         var bills = await _db.Bills.Where(b => b.UserId == userId).OrderBy(b => b.DueDate).ToListAsync(cancellationToken);
+        if (bills.Count > 0)
+        {
+            var providerIds = bills.Select(b => b.ProviderId).Distinct().ToList();
+            var providers = await _db.Providers
+                .Where(p => p.UserId == userId && providerIds.Contains(p.ProviderId))
+                .ToDictionaryAsync(p => p.ProviderId, p => p.ProviderName, cancellationToken);
+
+            foreach (var bill in bills)
+            {
+                if (providers.TryGetValue(bill.ProviderId, out var providerName))
+                {
+                    bill.ProviderName = providerName;
+                }
+            }
+        }
         return Ok(bills);
     }
 
@@ -53,6 +68,11 @@ public class BillsController : ControllerBase
         {
             return NotFound();
         }
+
+        bill.ProviderName = await _db.Providers
+            .Where(p => p.ProviderId == bill.ProviderId && p.UserId == userId)
+            .Select(p => p.ProviderName)
+            .FirstOrDefaultAsync(cancellationToken);
 
         return Ok(bill);
     }
@@ -99,6 +119,12 @@ public class BillsController : ControllerBase
 
         await _db.SaveChangesAsync(cancellationToken);
         await _audit.WriteAsync(userId, "Create", "Bill", bill.BillId.ToString(), "Success", HttpContext, cancellationToken);
+
+        bill.ProviderName = await _db.Providers
+            .Where(p => p.ProviderId == bill.ProviderId && p.UserId == userId)
+            .Select(p => p.ProviderName)
+            .FirstOrDefaultAsync(cancellationToken);
+
         return CreatedAtAction(nameof(GetBill), new { id = bill.BillId }, bill);
     }
 
@@ -135,6 +161,12 @@ public class BillsController : ControllerBase
 
         await _db.SaveChangesAsync(cancellationToken);
         await _audit.WriteAsync(userId, "Update", "Bill", bill.BillId.ToString(), "Success", HttpContext, cancellationToken);
+
+        bill.ProviderName = await _db.Providers
+            .Where(p => p.ProviderId == bill.ProviderId && p.UserId == userId)
+            .Select(p => p.ProviderName)
+            .FirstOrDefaultAsync(cancellationToken);
+
         return Ok(bill);
     }
 
@@ -184,6 +216,12 @@ public class BillsController : ControllerBase
 
         await _db.SaveChangesAsync(cancellationToken);
         await _audit.WriteAsync(userId, "UpdateEntry", "Bill", bill.BillId.ToString(), "Success", HttpContext, cancellationToken);
+
+        bill.ProviderName = await _db.Providers
+            .Where(p => p.ProviderId == bill.ProviderId && p.UserId == userId)
+            .Select(p => p.ProviderName)
+            .FirstOrDefaultAsync(cancellationToken);
+
         return Ok(bill);
     }
 

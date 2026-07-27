@@ -15,6 +15,7 @@ enum class BillStatus {
 data class Bill(
     val billId: String,
     val providerId: String,
+    val providerName: String? = null,
     val invoiceNumber: String,
     val accountNumber: String?,
     val serviceDate: String,

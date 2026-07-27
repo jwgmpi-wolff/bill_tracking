@@ -534,6 +534,9 @@ private fun BillsScreen(bills: List<Bill>, onSelect: (Bill) -> Unit) {
                 Card(modifier = Modifier.fillMaxWidth().clickable { onSelect(bill) }) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text("Invoice ${bill.invoiceNumber}", style = MaterialTheme.typography.titleMedium)
+                        if (!bill.providerName.isNullOrBlank()) {
+                            Text("Provider ${bill.providerName}")
+                        }
                         Text("Due ${bill.dueDate}")
                         Text("Status ${bill.currentStatus}")
                         Text("Patient responsibility ${bill.patientResponsibilityAmount}")
@@ -827,6 +830,9 @@ private fun BillDetailScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item { Text("Bill Detail", style = MaterialTheme.typography.headlineMedium) }
+        if (!bill.providerName.isNullOrBlank()) {
+            item { Text("Provider ${bill.providerName}") }
+        }
         item { Text("Status ${bill.currentStatus}") }
         item { Text("Amount paid ${bill.amountPaid}") }
 
