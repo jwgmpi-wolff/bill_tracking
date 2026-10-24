@@ -2,6 +2,19 @@
 
 MedBill Tracker is a secure starter for Android medical bill tracking with an Azure-hosted ASP.NET Core backend and Bicep-based infrastructure.
 
+<!-- project-downloads:start -->
+## APK and installer downloads
+
+| Package | Download | Source |
+| --- | --- | --- |
+| Android APK | [MedBillTracker-v1.0.2.apk](https://github.com/jwgmpi-wolff/bill_tracking/raw/refs/heads/master/releases/MedBillTracker-v1.0.2.apk) | repository package |
+
+Android may require approval to install apps from this download source. Debug APKs are labeled above. Windows executables that are not setup packages may require accompanying project files; follow the project-specific instructions below.
+
+- [Download the complete source ZIP](https://github.com/jwgmpi-wolff/bill_tracking/archive/refs/heads/master.zip).
+- [Setup script: deploy-local.ps1](./deploy-local.ps1) (download and extract the complete source ZIP first).
+<!-- project-downloads:end -->
+
 ## Feature summary
 
 - Android app (`android/`) with Kotlin + Jetpack Compose + MSAL single-account auth
@@ -156,3 +169,9 @@ Create a production-ready starter app called MedBill Tracker with these requirem
 ## Compliance note
 
 This starter requires legal, privacy, and security review before any HIPAA/HITECH or PCI-regulated production usage.
+
+## Copyright
+
+Copyright (c) 2026 Jerry Wolff. See [COPYRIGHT](COPYRIGHT) for the scope of this
+notice. Existing licenses and third-party attribution remain unchanged; this
+notice does not grant additional permissions.
