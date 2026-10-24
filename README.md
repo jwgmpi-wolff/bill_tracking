@@ -5,14 +5,26 @@ MedBill Tracker is a secure starter for Android medical bill tracking with an Az
 <!-- project-downloads:start -->
 ## APK and installer downloads
 
-| Package | Download | Source |
+Every available project package is indexed below, including older versions. Prefer the newest stable version for your platform and architecture. Debug APKs and prereleases are labeled; archives are not necessarily standalone installers.
+
+### Repository-hosted packages: all available versions
+
+| Version / source | Package | Download |
 | --- | --- | --- |
-| Android APK | [MedBillTracker-v1.0.2.apk](https://github.com/jwgmpi-wolff/bill_tracking/raw/refs/heads/master/releases/MedBillTracker-v1.0.2.apk) | repository package |
+| repository | Android APK | [releases/MedBillTracker-v1.0.1.apk](https://github.com/jwgmpi-wolff/bill_tracking/raw/refs/heads/master/releases/MedBillTracker-v1.0.1.apk) |
+| repository | Distribution archive | [releases/MedBillTracker-v1.0.2-email.zip](https://github.com/jwgmpi-wolff/bill_tracking/raw/refs/heads/master/releases/MedBillTracker-v1.0.2-email.zip) |
+| repository | Android APK | [releases/MedBillTracker-v1.0.2.apk](https://github.com/jwgmpi-wolff/bill_tracking/raw/refs/heads/master/releases/MedBillTracker-v1.0.2.apk) |
 
-Android may require approval to install apps from this download source. Debug APKs are labeled above. Windows executables that are not setup packages may require accompanying project files; follow the project-specific instructions below.
+Git LFS links download the package itself, not a pointer file. Executables without a setup wrapper may require accompanying project files.
 
-- [Download the complete source ZIP](https://github.com/jwgmpi-wolff/bill_tracking/archive/refs/heads/master.zip).
-- [Setup script: deploy-local.ps1](./deploy-local.ps1) (download and extract the complete source ZIP first).
+### Setup scripts and source
+
+- [Setup script: deploy-local.ps1](./deploy-local.ps1)
+
+- [Download the complete source ZIP](https://github.com/jwgmpi-wolff/bill_tracking/archive/refs/heads/master.zip). Extract the complete checkout before running setup scripts unless the project instructions explicitly support standalone installation.
+- [Browse all releases and their assets](https://github.com/jwgmpi-wolff/bill_tracking/releases).
+
+Android may require approval to install apps from the download source. Follow the project-specific installation, signing, checksum, and prerequisite instructions elsewhere in this README.
 <!-- project-downloads:end -->
 
 ## Feature summary
